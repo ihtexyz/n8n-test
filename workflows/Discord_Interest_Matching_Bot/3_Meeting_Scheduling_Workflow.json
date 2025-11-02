@@ -1,0 +1,640 @@
+{
+  "name": "Discord Interest Matching - Meeting Scheduling",
+  "nodes": [
+    {
+      "parameters": {
+        "path": "schedule-meeting",
+        "options": {
+          "responseMode": "responseNode"
+        }
+      },
+      "id": "a1b2c3d4-e5f6-7890-abcd-scheduling001",
+      "name": "Webhook Trigger",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [250, 300],
+      "webhookId": "meeting-scheduler-webhook"
+    },
+    {
+      "parameters": {
+        "operation": "get",
+        "base": {
+          "__rl": true,
+          "value": "appXXXXXXXXXXXXXX",
+          "mode": "list",
+          "cachedResultName": "Discord Interest Matching"
+        },
+        "table": {
+          "__rl": true,
+          "value": "tblMatches",
+          "mode": "list",
+          "cachedResultName": "Matches"
+        },
+        "id": "={{ $json.match_id }}"
+      },
+      "id": "b2c3d4e5-f6a7-8901-bcde-scheduling002",
+      "name": "Get Match Details",
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2,
+      "position": [470, 300],
+      "credentials": {
+        "airtableTokenApi": {
+          "id": "2",
+          "name": "Airtable Personal Access Token"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "get",
+        "base": {
+          "__rl": true,
+          "value": "appXXXXXXXXXXXXXX",
+          "mode": "list",
+          "cachedResultName": "Discord Interest Matching"
+        },
+        "table": {
+          "__rl": true,
+          "value": "tblUsers",
+          "mode": "list",
+          "cachedResultName": "Users"
+        },
+        "id": "={{ $json.fields['User 1'][0] }}"
+      },
+      "id": "c3d4e5f6-a7b8-9012-cdef-scheduling003",
+      "name": "Get User 1 Details",
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2,
+      "position": [690, 200],
+      "credentials": {
+        "airtableTokenApi": {
+          "id": "2",
+          "name": "Airtable Personal Access Token"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "get",
+        "base": {
+          "__rl": true,
+          "value": "appXXXXXXXXXXXXXX",
+          "mode": "list",
+          "cachedResultName": "Discord Interest Matching"
+        },
+        "table": {
+          "__rl": true,
+          "value": "tblUsers",
+          "mode": "list",
+          "cachedResultName": "Users"
+        },
+        "id": "={{ $json.fields['User 2'][0] }}"
+      },
+      "id": "d4e5f6a7-b8c9-0123-def1-scheduling004",
+      "name": "Get User 2 Details",
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2,
+      "position": [690, 400],
+      "credentials": {
+        "airtableTokenApi": {
+          "id": "2",
+          "name": "Airtable Personal Access Token"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Merge user data for Cal.com event creation\nconst matchData = $('Get Match Details').item.json;\nconst user1 = $('Get User 1 Details').item.json.fields;\nconst user2 = $('Get User 2 Details').item.json.fields;\n\nreturn [{\n  json: {\n    match_id: matchData.id,\n    match_score: matchData.fields['Match Score'],\n    match_reason: matchData.fields['Match Reason'],\n    user1: {\n      id: $('Get User 1 Details').item.json.id,\n      name: user1['Full Name'],\n      email: user1['Email'],\n      discord_id: user1['Discord ID'],\n      timezone: user1['Timezone']\n    },\n    user2: {\n      id: $('Get User 2 Details').item.json.id,\n      name: user2['Full Name'],\n      email: user2['Email'],\n      discord_id: user2['Discord ID'],\n      timezone: user2['Timezone']\n    },\n    event_title: `Interest Match: ${user1['Full Name']} & ${user2['Full Name']}`,\n    event_description: `Matched by Interest Matching Bot\\n\\nMatch Score: ${matchData.fields['Match Score']}/100\\n\\nWhy you matched:\\n${matchData.fields['Match Reason']}\\n\\nDiscussion topics: Career, hobbies, potential collaborations`\n  }\n}];"
+      },
+      "id": "e5f6a7b8-c9d0-1234-ef12-scheduling005",
+      "name": "Prepare Event Data",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [910, 300]
+    },
+    {
+      "parameters": {
+        "resource": "event-type",
+        "operation": "create",
+        "eventTypeData": {
+          "title": "={{ $json.event_title }}",
+          "slug": "interest-match-{{ $json.match_id }}",
+          "length": 60,
+          "description": "={{ $json.event_description }}",
+          "locations": [
+            {
+              "type": "integrations:zoom",
+              "displayLocationPublicly": true
+            }
+          ],
+          "minimumBookingNotice": 60,
+          "beforeEventBuffer": 0,
+          "afterEventBuffer": 0,
+          "requiresConfirmation": false
+        },
+        "additionalFields": {
+          "hosts": ["={{ $json.user1.email }}", "={{ $json.user2.email }}"],
+          "schedulingType": "COLLECTIVE"
+        }
+      },
+      "id": "f6a7b8c9-d0e1-2345-f123-scheduling006",
+      "name": "Create Cal.com Event Type",
+      "type": "n8n-nodes-base.cal",
+      "typeVersion": 1,
+      "position": [1130, 300],
+      "credentials": {
+        "calApi": {
+          "id": "4",
+          "name": "Cal.com API"
+        }
+      },
+      "notes": "Creates a collective event type for both users"
+    },
+    {
+      "parameters": {
+        "resource": "booking",
+        "operation": "getBookingLink",
+        "eventTypeId": "={{ $json.id }}"
+      },
+      "id": "a7b8c9d0-e1f2-3456-1234-scheduling007",
+      "name": "Get Booking Link",
+      "type": "n8n-nodes-base.cal",
+      "typeVersion": 1,
+      "position": [1350, 300],
+      "credentials": {
+        "calApi": {
+          "id": "4",
+          "name": "Cal.com API"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "base": {
+          "__rl": true,
+          "value": "appXXXXXXXXXXXXXX",
+          "mode": "list",
+          "cachedResultName": "Discord Interest Matching"
+        },
+        "table": {
+          "__rl": true,
+          "value": "tblMatches",
+          "mode": "list",
+          "cachedResultName": "Matches"
+        },
+        "id": "={{ $('Prepare Event Data').item.json.match_id }}",
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "Cal Link Sent": true,
+            "Meeting Link": "={{ $json.bookingLink }}",
+            "Status": "Scheduled"
+          }
+        }
+      },
+      "id": "b8c9d0e1-f2a3-4567-2345-scheduling008",
+      "name": "Update Match Record",
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2,
+      "position": [1570, 300],
+      "credentials": {
+        "airtableTokenApi": {
+          "id": "2",
+          "name": "Airtable Personal Access Token"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "channel": "={{ $('Prepare Event Data').item.json.user1.discord_id }}",
+        "embeds": [
+          {
+            "title": "📅 Your Meeting Link is Ready!",
+            "description": "=Click the link below to schedule your meeting with **{{ $('Prepare Event Data').item.json.user2.name }}**",
+            "color": 5814783,
+            "fields": [
+              {
+                "name": "🔗 Booking Link",
+                "value": "={{ $json.bookingLink }}",
+                "inline": false
+              },
+              {
+                "name": "⏱️ Meeting Duration",
+                "value": "60 minutes",
+                "inline": true
+              },
+              {
+                "name": "🎯 Match Score",
+                "value": "={{ $('Prepare Event Data').item.json.match_score }}/100",
+                "inline": true
+              },
+              {
+                "name": "💡 Tips for a Great Meeting",
+                "value": "• Review their interests beforehand\\n• Prepare a few questions\\n• Be open to collaboration opportunities\\n• Take notes on key discussion points",
+                "inline": false
+              }
+            ],
+            "footer": {
+              "text": "After your meeting, we'll ask for quick feedback to improve future matches!"
+            }
+          }
+        ]
+      },
+      "id": "c9d0e1f2-a3b4-5678-3456-scheduling009",
+      "name": "Send Cal Link to User 1",
+      "type": "n8n-nodes-base.discord",
+      "typeVersion": 1,
+      "position": [1790, 200],
+      "credentials": {
+        "discordApi": {
+          "id": "1",
+          "name": "Discord Bot Account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "channel": "={{ $('Prepare Event Data').item.json.user2.discord_id }}",
+        "embeds": [
+          {
+            "title": "📅 Your Meeting Link is Ready!",
+            "description": "=Click the link below to schedule your meeting with **{{ $('Prepare Event Data').item.json.user1.name }}**",
+            "color": 5814783,
+            "fields": [
+              {
+                "name": "🔗 Booking Link",
+                "value": "={{ $json.bookingLink }}",
+                "inline": false
+              },
+              {
+                "name": "⏱️ Meeting Duration",
+                "value": "60 minutes",
+                "inline": true
+              },
+              {
+                "name": "🎯 Match Score",
+                "value": "={{ $('Prepare Event Data').item.json.match_score }}/100",
+                "inline": true
+              },
+              {
+                "name": "💡 Tips for a Great Meeting",
+                "value": "• Review their interests beforehand\\n• Prepare a few questions\\n• Be open to collaboration opportunities\\n• Take notes on key discussion points",
+                "inline": false
+              }
+            ],
+            "footer": {
+              "text": "After your meeting, we'll ask for quick feedback to improve future matches!"
+            }
+          }
+        ]
+      },
+      "id": "d0e1f2a3-b4c5-6789-4567-scheduling010",
+      "name": "Send Cal Link to User 2",
+      "type": "n8n-nodes-base.discord",
+      "typeVersion": 1,
+      "position": [1790, 400],
+      "credentials": {
+        "discordApi": {
+          "id": "1",
+          "name": "Discord Bot Account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { \"success\": true, \"booking_link\": $json.bookingLink, \"match_id\": $('Prepare Event Data').item.json.match_id } }}",
+        "options": {}
+      },
+      "id": "e1f2a3b4-c5d6-7890-5678-scheduling011",
+      "name": "Respond to Webhook",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [2010, 300]
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "hours",
+              "hoursInterval": 24
+            }
+          ]
+        }
+      },
+      "id": "f2a3b4c5-d6e7-8901-6789-scheduling012",
+      "name": "Daily Check for Scheduled Meetings",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.1,
+      "position": [250, 600],
+      "notes": "Reminder workflow for unscheduled meetings"
+    },
+    {
+      "parameters": {
+        "operation": "list",
+        "base": {
+          "__rl": true,
+          "value": "appXXXXXXXXXXXXXX",
+          "mode": "list",
+          "cachedResultName": "Discord Interest Matching"
+        },
+        "table": {
+          "__rl": true,
+          "value": "tblMatches",
+          "mode": "list",
+          "cachedResultName": "Matches"
+        },
+        "filterByFormula": "=AND({Cal Link Sent}=TRUE(), {Meeting Scheduled}=FALSE(), DATETIME_DIFF(NOW(), {Matched At}, 'days') > 3)",
+        "options": {}
+      },
+      "id": "a3b4c5d6-e7f8-9012-7890-scheduling013",
+      "name": "Find Pending Meetings",
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2,
+      "position": [470, 600],
+      "credentials": {
+        "airtableTokenApi": {
+          "id": "2",
+          "name": "Airtable Personal Access Token"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "channel": "={{ $json.fields['User 1'][0] }}",
+        "content": "=👋 **Friendly Reminder**\n\nYou haven't scheduled your meeting yet with your match!\n\n**Cal.com Link:** {{ $json.fields['Meeting Link'] }}\n\nDon't miss this opportunity to connect. Book your meeting today! 📅"
+      },
+      "id": "b4c5d6e7-f8a9-0123-8901-scheduling014",
+      "name": "Send Reminder to Users",
+      "type": "n8n-nodes-base.discord",
+      "typeVersion": 1,
+      "position": [690, 600],
+      "credentials": {
+        "discordApi": {
+          "id": "1",
+          "name": "Discord Bot Account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "cal-webhook-booking-confirmed",
+        "options": {}
+      },
+      "id": "c5d6e7f8-a9b0-1234-9012-scheduling015",
+      "name": "Cal.com Booking Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [250, 900],
+      "webhookId": "cal-booking-webhook",
+      "notes": "Triggered when users book a meeting via Cal.com"
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "base": {
+          "__rl": true,
+          "value": "appXXXXXXXXXXXXXX",
+          "mode": "list",
+          "cachedResultName": "Discord Interest Matching"
+        },
+        "table": {
+          "__rl": true,
+          "value": "tblMatches",
+          "mode": "list",
+          "cachedResultName": "Matches"
+        },
+        "id": "={{ $json.metadata.match_id }}",
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "Meeting Scheduled": true,
+            "Meeting Date": "={{ $json.startTime.split('T')[0] }}",
+            "Meeting Time": "={{ $json.startTime }}",
+            "Status": "Scheduled"
+          }
+        }
+      },
+      "id": "d6e7f8a9-b0c1-2345-0123-scheduling016",
+      "name": "Mark Meeting as Scheduled",
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2,
+      "position": [470, 900],
+      "credentials": {
+        "airtableTokenApi": {
+          "id": "2",
+          "name": "Airtable Personal Access Token"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "content": "=🎉 **Meeting Confirmed!**\n\nYour meeting is scheduled for:\n📅 {{ $json.startTime }}\n\nWe'll send you a reminder 24 hours before. Looking forward to a great conversation!",
+        "additionalFields": {}
+      },
+      "id": "e7f8a9b0-c1d2-3456-1234-scheduling017",
+      "name": "Send Confirmation",
+      "type": "n8n-nodes-base.discord",
+      "typeVersion": 1,
+      "position": [690, 900],
+      "credentials": {
+        "discordApi": {
+          "id": "1",
+          "name": "Discord Bot Account"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Webhook Trigger": {
+      "main": [
+        [
+          {
+            "node": "Get Match Details",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Match Details": {
+      "main": [
+        [
+          {
+            "node": "Get User 1 Details",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Get User 2 Details",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get User 1 Details": {
+      "main": [
+        [
+          {
+            "node": "Prepare Event Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get User 2 Details": {
+      "main": [
+        [
+          {
+            "node": "Prepare Event Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Event Data": {
+      "main": [
+        [
+          {
+            "node": "Create Cal.com Event Type",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create Cal.com Event Type": {
+      "main": [
+        [
+          {
+            "node": "Get Booking Link",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Booking Link": {
+      "main": [
+        [
+          {
+            "node": "Update Match Record",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Update Match Record": {
+      "main": [
+        [
+          {
+            "node": "Send Cal Link to User 1",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Send Cal Link to User 2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send Cal Link to User 1": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send Cal Link to User 2": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Daily Check for Scheduled Meetings": {
+      "main": [
+        [
+          {
+            "node": "Find Pending Meetings",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Find Pending Meetings": {
+      "main": [
+        [
+          {
+            "node": "Send Reminder to Users",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Cal.com Booking Webhook": {
+      "main": [
+        [
+          {
+            "node": "Mark Meeting as Scheduled",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Mark Meeting as Scheduled": {
+      "main": [
+        [
+          {
+            "node": "Send Confirmation",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "1",
+  "id": "discord-matching-scheduling",
+  "meta": {
+    "instanceId": "your-instance-id"
+  },
+  "tags": [
+    {
+      "name": "Cal.com",
+      "id": "7"
+    },
+    {
+      "name": "Scheduling",
+      "id": "8"
+    }
+  ],
+  "pinData": {},
+  "staticData": null,
+  "createdAt": "2025-11-02T00:00:00.000Z",
+  "updatedAt": "2025-11-02T00:00:00.000Z"
+}

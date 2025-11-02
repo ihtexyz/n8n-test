@@ -1,0 +1,320 @@
+{
+  "name": "Discord Interest Matching - User Registration",
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "c89e84c5-8a0e-4f91-a7e1-4e3e3c3d8e8a",
+      "name": "When user types /register in Discord",
+      "type": "n8n-nodes-base.discordTrigger",
+      "typeVersion": 1,
+      "position": [250, 300],
+      "webhookId": "discord-register-webhook",
+      "credentials": {
+        "discordApi": {
+          "id": "1",
+          "name": "Discord Bot Account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "channel": "={{ $json.channel_id }}",
+        "content": "=👋 Welcome to the Interest Matching Bot!\n\nI'll help you connect with people who share similar interests, work in related fields, or live nearby.\n\n**To get started, please fill out this quick form:**\n{{ $('Get Airtable Form URL').item.json.formUrl }}\n\nIt takes about 2-3 minutes to complete. Once you submit, I'll start finding great matches for you! 🎯"
+      },
+      "id": "b1a2c3d4-5e6f-7a8b-9c0d-1e2f3a4b5c6d",
+      "name": "Send Welcome Message",
+      "type": "n8n-nodes-base.discord",
+      "typeVersion": 1,
+      "position": [670, 300],
+      "credentials": {
+        "discordApi": {
+          "id": "1",
+          "name": "Discord Bot Account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "airtable-form-submitted",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "a9b8c7d6-e5f4-3a2b-1c0d-9e8f7a6b5c4d",
+      "name": "Airtable Form Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [250, 520],
+      "webhookId": "airtable-form-webhook"
+    },
+    {
+      "parameters": {
+        "operation": "create",
+        "base": {
+          "__rl": true,
+          "value": "appXXXXXXXXXXXXXX",
+          "mode": "list",
+          "cachedResultName": "Discord Interest Matching"
+        },
+        "table": {
+          "__rl": true,
+          "value": "tblUsers",
+          "mode": "list",
+          "cachedResultName": "Users"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "Discord ID": "={{ $json.discord_id }}",
+            "Discord Username": "={{ $json.discord_username }}",
+            "Email": "={{ $json.email }}",
+            "Full Name": "={{ $json.full_name }}",
+            "Location": "={{ $json.location }}",
+            "Job Title": "={{ $json.job_title }}",
+            "Company": "={{ $json.company }}",
+            "Industry": "={{ $json.industry }}",
+            "Hobbies": "={{ $json.hobbies }}",
+            "Interests": "={{ $json.interests }}",
+            "Skills": "={{ $json.skills }}",
+            "Years Experience": "={{ $json.years_experience }}",
+            "Timezone": "={{ $json.timezone }}",
+            "Preferred Meeting Days": "={{ $json.preferred_days }}",
+            "Preferred Meeting Times": "={{ $json.preferred_times }}",
+            "What I'm Looking For": "={{ $json.looking_for }}",
+            "Status": "Active"
+          }
+        },
+        "options": {}
+      },
+      "id": "d1e2f3a4-b5c6-7d8e-9f0a-1b2c3d4e5f6a",
+      "name": "Create User in Airtable",
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2,
+      "position": [470, 520],
+      "credentials": {
+        "airtableTokenApi": {
+          "id": "2",
+          "name": "Airtable Personal Access Token"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "channel": "={{ $json.discord_id }}",
+        "content": "=✅ **Registration Complete!**\n\nThanks for joining, {{ $('Create User in Airtable').item.json.fields['Full Name'] }}!\n\nYour profile is now active. Here's what happens next:\n\n1. 🤖 **AI Matching**: Our algorithm will analyze your interests, location, and preferences\n2. 🔔 **Get Notified**: When we find great matches, you'll receive a DM here\n3. 📅 **Schedule Meetings**: You'll get a Cal.com link to book a time that works for both of you\n4. 💬 **Connect**: Have meaningful conversations with people who share your interests\n5. ⭐ **Give Feedback**: Rate your meetings to help us improve matches\n\n**Pro tip**: The matching algorithm runs every 6 hours. Your first matches could arrive soon!\n\nQuestions? Reply here or type `/help` anytime. Happy connecting! 🎉"
+      },
+      "id": "e2f3a4b5-c6d7-8e9f-0a1b-2c3d4e5f6a7b",
+      "name": "Send Confirmation DM",
+      "type": "n8n-nodes-base.discord",
+      "typeVersion": 1,
+      "position": [690, 520],
+      "credentials": {
+        "discordApi": {
+          "id": "1",
+          "name": "Discord Bot Account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { \"success\": true, \"message\": \"User registered successfully\", \"user_id\": $('Create User in Airtable').item.json.id } }}",
+        "options": {}
+      },
+      "id": "f3a4b5c6-d7e8-9f0a-1b2c-3d4e5f6a7b8c",
+      "name": "Respond to Webhook",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [910, 520]
+    },
+    {
+      "parameters": {
+        "url": "https://airtable.com/shrXXXXXXXXXXXXXX",
+        "options": {}
+      },
+      "id": "a1b2c3d4-e5f6-7a8b-9c0d-1e2f3a4b5c6d",
+      "name": "Get Airtable Form URL",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 3,
+      "position": [450, 300],
+      "notes": "Update this with your actual Airtable form URL"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "string": [
+            {
+              "value1": "={{ $json.discord_id }}",
+              "operation": "isNotEmpty"
+            }
+          ]
+        }
+      },
+      "id": "b2c3d4e5-f6a7-8b9c-0d1e-2f3a4b5c6d7e",
+      "name": "Check if Discord ID exists",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [470, 700]
+    },
+    {
+      "parameters": {
+        "operation": "search",
+        "base": {
+          "__rl": true,
+          "value": "appXXXXXXXXXXXXXX",
+          "mode": "list",
+          "cachedResultName": "Discord Interest Matching"
+        },
+        "table": {
+          "__rl": true,
+          "value": "tblUsers",
+          "mode": "list",
+          "cachedResultName": "Users"
+        },
+        "filterByFormula": "={Discord ID}='{{ $json.discord_id }}'",
+        "options": {}
+      },
+      "id": "c3d4e5f6-a7b8-9c0d-1e2f-3a4b5c6d7e8f",
+      "name": "Check Existing User",
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2,
+      "position": [250, 700],
+      "credentials": {
+        "airtableTokenApi": {
+          "id": "2",
+          "name": "Airtable Personal Access Token"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "channel": "={{ $json.channel_id }}",
+        "content": "=⚠️ You're already registered!\n\nYour profile is active and you're in our matching pool.\n\nWant to update your preferences? Type `/update-profile`\nNeed help? Type `/help`"
+      },
+      "id": "d4e5f6a7-b8c9-0d1e-2f3a-4b5c6d7e8f9a",
+      "name": "Already Registered Message",
+      "type": "n8n-nodes-base.discord",
+      "typeVersion": 1,
+      "position": [690, 700],
+      "credentials": {
+        "discordApi": {
+          "id": "1",
+          "name": "Discord Bot Account"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "When user types /register in Discord": {
+      "main": [
+        [
+          {
+            "node": "Check Existing User",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Airtable Form URL": {
+      "main": [
+        [
+          {
+            "node": "Send Welcome Message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Airtable Form Webhook": {
+      "main": [
+        [
+          {
+            "node": "Create User in Airtable",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create User in Airtable": {
+      "main": [
+        [
+          {
+            "node": "Send Confirmation DM",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send Confirmation DM": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check Existing User": {
+      "main": [
+        [
+          {
+            "node": "Check if Discord ID exists",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check if Discord ID exists": {
+      "main": [
+        [
+          {
+            "node": "Already Registered Message",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Get Airtable Form URL",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "1",
+  "id": "discord-matching-registration",
+  "meta": {
+    "instanceId": "your-instance-id"
+  },
+  "tags": [
+    {
+      "name": "Discord",
+      "id": "1"
+    },
+    {
+      "name": "Airtable",
+      "id": "2"
+    },
+    {
+      "name": "User Management",
+      "id": "3"
+    }
+  ],
+  "pinData": {},
+  "staticData": null,
+  "createdAt": "2025-11-02T00:00:00.000Z",
+  "updatedAt": "2025-11-02T00:00:00.000Z"
+}

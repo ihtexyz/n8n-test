@@ -1,0 +1,601 @@
+{
+  "name": "Discord Interest Matching - Feedback Collection",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "hours",
+              "hoursInterval": 6
+            }
+          ]
+        }
+      },
+      "id": "a1b2c3d4-e5f6-7890-abcd-feedback001",
+      "name": "Check for Completed Meetings",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.1,
+      "position": [250, 300],
+      "notes": "Runs every 6 hours to find meetings that need feedback"
+    },
+    {
+      "parameters": {
+        "operation": "list",
+        "base": {
+          "__rl": true,
+          "value": "appXXXXXXXXXXXXXX",
+          "mode": "list",
+          "cachedResultName": "Discord Interest Matching"
+        },
+        "table": {
+          "__rl": true,
+          "value": "tblMatches",
+          "mode": "list",
+          "cachedResultName": "Matches"
+        },
+        "filterByFormula": "=AND({Meeting Scheduled}=TRUE(), {Meeting Date} < TODAY(), {Feedback Received} < 2, DATETIME_DIFF(NOW(), {Meeting Date}, 'hours') >= 2, DATETIME_DIFF(NOW(), {Meeting Date}, 'days') <= 7)",
+        "options": {
+          "useFieldNames": true
+        }
+      },
+      "id": "b2c3d4e5-f6a7-8901-bcde-feedback002",
+      "name": "Find Meetings Needing Feedback",
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2,
+      "position": [470, 300],
+      "credentials": {
+        "airtableTokenApi": {
+          "id": "2",
+          "name": "Airtable Personal Access Token"
+        }
+      },
+      "notes": "Gets meetings that occurred 2+ hours ago but less than 7 days ago"
+    },
+    {
+      "parameters": {
+        "operation": "get",
+        "base": {
+          "__rl": true,
+          "value": "appXXXXXXXXXXXXXX",
+          "mode": "list",
+          "cachedResultName": "Discord Interest Matching"
+        },
+        "table": {
+          "__rl": true,
+          "value": "tblUsers",
+          "mode": "list",
+          "cachedResultName": "Users"
+        },
+        "id": "={{ $json.fields['User 1'][0] }}"
+      },
+      "id": "c3d4e5f6-a7b8-9012-cdef-feedback003",
+      "name": "Get User 1",
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2,
+      "position": [690, 200],
+      "credentials": {
+        "airtableTokenApi": {
+          "id": "2",
+          "name": "Airtable Personal Access Token"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "get",
+        "base": {
+          "__rl": true,
+          "value": "appXXXXXXXXXXXXXX",
+          "mode": "list",
+          "cachedResultName": "Discord Interest Matching"
+        },
+        "table": {
+          "__rl": true,
+          "value": "tblUsers",
+          "mode": "list",
+          "cachedResultName": "Users"
+        },
+        "id": "={{ $json.fields['User 2'][0] }}"
+      },
+      "id": "d4e5f6a7-b8c9-0123-def1-feedback004",
+      "name": "Get User 2",
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2,
+      "position": [690, 400],
+      "credentials": {
+        "airtableTokenApi": {
+          "id": "2",
+          "name": "Airtable Personal Access Token"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "channel": "={{ $('Get User 1').item.json.fields['Discord ID'] }}",
+        "embeds": [
+          {
+            "title": "⭐ How was your meeting?",
+            "description": "=We hope you had a great conversation with **{{ $('Get User 2').item.json.fields['Full Name'] }}**!\\n\\nYour feedback helps us improve our matching algorithm and create better connections for everyone.",
+            "color": 3447003,
+            "fields": [
+              {
+                "name": "📝 Quick Feedback Form",
+                "value": "Click the link below to share your experience (takes 1 minute)",
+                "inline": false
+              },
+              {
+                "name": "🔗 Feedback Link",
+                "value": "https://airtable.com/shrFEEDBACKFORM?prefill_Match={{ $('Find Meetings Needing Feedback').item.json.id }}&prefill_User={{ $('Get User 1').item.json.id }}",
+                "inline": false
+              }
+            ],
+            "footer": {
+              "text": "Your responses are confidential and help improve future matches"
+            }
+          }
+        ]
+      },
+      "id": "e5f6a7b8-c9d0-1234-ef12-feedback005",
+      "name": "Request Feedback from User 1",
+      "type": "n8n-nodes-base.discord",
+      "typeVersion": 1,
+      "position": [910, 200],
+      "credentials": {
+        "discordApi": {
+          "id": "1",
+          "name": "Discord Bot Account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "channel": "={{ $('Get User 2').item.json.fields['Discord ID'] }}",
+        "embeds": [
+          {
+            "title": "⭐ How was your meeting?",
+            "description": "=We hope you had a great conversation with **{{ $('Get User 1').item.json.fields['Full Name'] }}**!\\n\\nYour feedback helps us improve our matching algorithm and create better connections for everyone.",
+            "color": 3447003,
+            "fields": [
+              {
+                "name": "📝 Quick Feedback Form",
+                "value": "Click the link below to share your experience (takes 1 minute)",
+                "inline": false
+              },
+              {
+                "name": "🔗 Feedback Link",
+                "value": "https://airtable.com/shrFEEDBACKFORM?prefill_Match={{ $('Find Meetings Needing Feedback').item.json.id }}&prefill_User={{ $('Get User 2').item.json.id }}",
+                "inline": false
+              }
+            ],
+            "footer": {
+              "text": "Your responses are confidential and help improve future matches"
+            }
+          }
+        ]
+      },
+      "id": "f6a7b8c9-d0e1-2345-f123-feedback006",
+      "name": "Request Feedback from User 2",
+      "type": "n8n-nodes-base.discord",
+      "typeVersion": 1,
+      "position": [910, 400],
+      "credentials": {
+        "discordApi": {
+          "id": "1",
+          "name": "Discord Bot Account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "feedback-submitted",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "a7b8c9d0-e1f2-3456-1234-feedback007",
+      "name": "Feedback Form Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [250, 700],
+      "webhookId": "feedback-webhook",
+      "notes": "Triggered when user submits feedback via Airtable form"
+    },
+    {
+      "parameters": {
+        "operation": "create",
+        "base": {
+          "__rl": true,
+          "value": "appXXXXXXXXXXXXXX",
+          "mode": "list",
+          "cachedResultName": "Discord Interest Matching"
+        },
+        "table": {
+          "__rl": true,
+          "value": "tblFeedback",
+          "mode": "list",
+          "cachedResultName": "Feedback"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "Match": ["={{ $json.match_id }}"],
+            "User": ["={{ $json.user_id }}"],
+            "Rating": "={{ $json.rating }}",
+            "Conversation Quality": "={{ $json.conversation_quality }}",
+            "Would Meet Again": "={{ $json.would_meet_again }}",
+            "Topics Discussed": "={{ $json.topics_discussed }}",
+            "Comments": "={{ $json.comments }}",
+            "Meeting Duration": "={{ $json.meeting_duration }}",
+            "Technical Issues": "={{ $json.technical_issues }}"
+          }
+        },
+        "options": {}
+      },
+      "id": "b8c9d0e1-f2a3-4567-2345-feedback008",
+      "name": "Save Feedback to Airtable",
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2,
+      "position": [470, 700],
+      "credentials": {
+        "airtableTokenApi": {
+          "id": "2",
+          "name": "Airtable Personal Access Token"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "get",
+        "base": {
+          "__rl": true,
+          "value": "appXXXXXXXXXXXXXX",
+          "mode": "list",
+          "cachedResultName": "Discord Interest Matching"
+        },
+        "table": {
+          "__rl": true,
+          "value": "tblMatches",
+          "mode": "list",
+          "cachedResultName": "Matches"
+        },
+        "id": "={{ $json.match_id }}"
+      },
+      "id": "c9d0e1f2-a3b4-5678-3456-feedback009",
+      "name": "Get Match Record",
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2,
+      "position": [690, 700],
+      "credentials": {
+        "airtableTokenApi": {
+          "id": "2",
+          "name": "Airtable Personal Access Token"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "number": [
+            {
+              "value1": "={{ $json.fields['Feedback Received'] }}",
+              "operation": "equal",
+              "value2": 2
+            }
+          ]
+        }
+      },
+      "id": "d0e1f2a3-b4c5-6789-4567-feedback010",
+      "name": "Both Users Submitted?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [910, 700]
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "base": {
+          "__rl": true,
+          "value": "appXXXXXXXXXXXXXX",
+          "mode": "list",
+          "cachedResultName": "Discord Interest Matching"
+        },
+        "table": {
+          "__rl": true,
+          "value": "tblMatches",
+          "mode": "list",
+          "cachedResultName": "Matches"
+        },
+        "id": "={{ $('Get Match Record').item.json.id }}",
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "Status": "Completed",
+            "Meeting Completed": true,
+            "Completed At": "={{ $now.toISODate() }}"
+          }
+        }
+      },
+      "id": "e1f2a3b4-c5d6-7890-5678-feedback011",
+      "name": "Mark Match as Completed",
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2,
+      "position": [1130, 700],
+      "credentials": {
+        "airtableTokenApi": {
+          "id": "2",
+          "name": "Airtable Personal Access Token"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "channel": "={{ $json.user_discord_id }}",
+        "content": "=✅ **Thanks for your feedback!**\n\nYour input helps us create better matches for everyone in the community.\n\nInterested in meeting more people? You'll automatically be included in future matching cycles! 🎯"
+      },
+      "id": "f2a3b4c5-d6e7-8901-6789-feedback012",
+      "name": "Thank User for Feedback",
+      "type": "n8n-nodes-base.discord",
+      "typeVersion": 1,
+      "position": [690, 900],
+      "credentials": {
+        "discordApi": {
+          "id": "1",
+          "name": "Discord Bot Account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { \"success\": true, \"message\": \"Feedback recorded successfully\" } }}",
+        "options": {}
+      },
+      "id": "a3b4c5d6-e7f8-9012-7890-feedback013",
+      "name": "Respond to Webhook",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [910, 900]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Analyze feedback patterns and update matching algorithm weights\nconst allFeedback = $input.all();\n\nif (allFeedback.length === 0) {\n  return [];\n}\n\n// Calculate aggregate statistics\nlet totalRating = 0;\nlet totalConvQuality = 0;\nlet wouldMeetAgainYes = 0;\nlet topicsCount = {};\nlet totalResponses = allFeedback.length;\n\nallFeedback.forEach(item => {\n  const fields = item.json.fields;\n  \n  // Parse ratings\n  const rating = parseInt(fields['Rating']?.split(' ')[0]) || 0;\n  const convQuality = parseInt(fields['Conversation Quality']) || 0;\n  \n  totalRating += rating;\n  totalConvQuality += convQuality;\n  \n  if (fields['Would Meet Again'] === 'Yes') {\n    wouldMeetAgainYes++;\n  }\n  \n  // Count topics\n  const topics = fields['Topics Discussed'] || [];\n  topics.forEach(topic => {\n    topicsCount[topic] = (topicsCount[topic] || 0) + 1;\n  });\n});\n\n// Calculate algorithm adjustment recommendations\nconst avgRating = totalRating / totalResponses;\nconst avgConvQuality = totalConvQuality / totalResponses;\nconst meetAgainRate = (wouldMeetAgainYes / totalResponses) * 100;\n\nconst recommendations = {\n  averageRating: avgRating.toFixed(2),\n  averageConversationQuality: avgConvQuality.toFixed(2),\n  meetAgainPercentage: meetAgainRate.toFixed(1),\n  popularTopics: Object.entries(topicsCount)\n    .sort((a, b) => b[1] - a[1])\n    .slice(0, 5)\n    .map(([topic, count]) => ({ topic, count })),\n  algorithmSuggestions: []\n};\n\n// Generate suggestions based on metrics\nif (avgRating < 3.5) {\n  recommendations.algorithmSuggestions.push('Increase weight on shared interests (currently 40%)');\n}\n\nif (avgConvQuality >= 4.0) {\n  recommendations.algorithmSuggestions.push('Current matching criteria working well - maintain');\n}\n\nif (meetAgainRate < 60) {\n  recommendations.algorithmSuggestions.push('Consider adding personality matching or communication style');\n}\n\nreturn [{ json: recommendations }];"
+      },
+      "id": "b4c5d6e7-f8a9-0123-8901-feedback014",
+      "name": "Analyze Feedback Patterns",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [250, 1100],
+      "notes": "Weekly analysis to improve matching algorithm"
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "weeks",
+              "weeksInterval": 1
+            }
+          ]
+        }
+      },
+      "id": "c5d6e7f8-a9b0-1234-9012-feedback015",
+      "name": "Weekly Analysis Trigger",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.1,
+      "position": [250, 1300]
+    },
+    {
+      "parameters": {
+        "operation": "list",
+        "base": {
+          "__rl": true,
+          "value": "appXXXXXXXXXXXXXX",
+          "mode": "list",
+          "cachedResultName": "Discord Interest Matching"
+        },
+        "table": {
+          "__rl": true,
+          "value": "tblFeedback",
+          "mode": "list",
+          "cachedResultName": "Feedback"
+        },
+        "filterByFormula": "=DATETIME_DIFF(NOW(), {Submitted At}, 'days') <= 7",
+        "options": {
+          "useFieldNames": true
+        }
+      },
+      "id": "d6e7f8a9-b0c1-2345-0123-feedback016",
+      "name": "Get Last Week Feedback",
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2,
+      "position": [470, 1300],
+      "credentials": {
+        "airtableTokenApi": {
+          "id": "2",
+          "name": "Airtable Personal Access Token"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "content": "=📊 **Weekly Matching Algorithm Report**\n\n**Feedback Summary (Last 7 Days):**\n• Average Rating: {{ $json.averageRating }}/5\n• Conversation Quality: {{ $json.averageConversationQuality }}/5\n• Would Meet Again: {{ $json.meetAgainPercentage }}%\n\n**Popular Topics:**\n{{ $json.popularTopics.map(t => `• ${t.topic}: ${t.count} mentions`).join('\\n') }}\n\n**Algorithm Suggestions:**\n{{ $json.algorithmSuggestions.join('\\n• ') }}\n\nGenerated: {{ $now.toISO() }}",
+        "channel": "admin-reports",
+        "additionalFields": {}
+      },
+      "id": "e7f8a9b0-c1d2-3456-1234-feedback017",
+      "name": "Send Admin Report",
+      "type": "n8n-nodes-base.slack",
+      "typeVersion": 1,
+      "position": [690, 1300],
+      "notes": "Optional: Send to admin Slack/Discord channel"
+    }
+  ],
+  "connections": {
+    "Check for Completed Meetings": {
+      "main": [
+        [
+          {
+            "node": "Find Meetings Needing Feedback",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Find Meetings Needing Feedback": {
+      "main": [
+        [
+          {
+            "node": "Get User 1",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Get User 2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get User 1": {
+      "main": [
+        [
+          {
+            "node": "Request Feedback from User 1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get User 2": {
+      "main": [
+        [
+          {
+            "node": "Request Feedback from User 2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Feedback Form Webhook": {
+      "main": [
+        [
+          {
+            "node": "Save Feedback to Airtable",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Save Feedback to Airtable": {
+      "main": [
+        [
+          {
+            "node": "Get Match Record",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Thank User for Feedback",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Match Record": {
+      "main": [
+        [
+          {
+            "node": "Both Users Submitted?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Both Users Submitted?": {
+      "main": [
+        [
+          {
+            "node": "Mark Match as Completed",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Thank User for Feedback": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Weekly Analysis Trigger": {
+      "main": [
+        [
+          {
+            "node": "Get Last Week Feedback",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Last Week Feedback": {
+      "main": [
+        [
+          {
+            "node": "Analyze Feedback Patterns",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Analyze Feedback Patterns": {
+      "main": [
+        [
+          {
+            "node": "Send Admin Report",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "1",
+  "id": "discord-matching-feedback",
+  "meta": {
+    "instanceId": "your-instance-id"
+  },
+  "tags": [
+    {
+      "name": "Feedback",
+      "id": "9"
+    },
+    {
+      "name": "Analytics",
+      "id": "10"
+    }
+  ],
+  "pinData": {},
+  "staticData": null,
+  "createdAt": "2025-11-02T00:00:00.000Z",
+  "updatedAt": "2025-11-02T00:00:00.000Z"
+}

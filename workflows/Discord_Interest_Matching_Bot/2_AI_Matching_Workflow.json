@@ -1,0 +1,425 @@
+{
+  "name": "Discord Interest Matching - AI Matching Engine",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "hours",
+              "hoursInterval": 6
+            }
+          ]
+        }
+      },
+      "id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+      "name": "Run Every 6 Hours",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.1,
+      "position": [250, 300]
+    },
+    {
+      "parameters": {
+        "operation": "list",
+        "base": {
+          "__rl": true,
+          "value": "appXXXXXXXXXXXXXX",
+          "mode": "list",
+          "cachedResultName": "Discord Interest Matching"
+        },
+        "table": {
+          "__rl": true,
+          "value": "tblUsers",
+          "mode": "list",
+          "cachedResultName": "Users"
+        },
+        "filterByFormula": "={Status}='Active'",
+        "options": {
+          "useFieldNames": true
+        }
+      },
+      "id": "b2c3d4e5-f6a7-8901-bcde-f12345678901",
+      "name": "Get Active Users",
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2,
+      "position": [470, 300],
+      "credentials": {
+        "airtableTokenApi": {
+          "id": "2",
+          "name": "Airtable Personal Access Token"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "list",
+        "base": {
+          "__rl": true,
+          "value": "appXXXXXXXXXXXXXX",
+          "mode": "list",
+          "cachedResultName": "Discord Interest Matching"
+        },
+        "table": {
+          "__rl": true,
+          "value": "tblMatches",
+          "mode": "list",
+          "cachedResultName": "Matches"
+        },
+        "options": {
+          "useFieldNames": true
+        }
+      },
+      "id": "c3d4e5f6-a7b8-9012-cdef-123456789012",
+      "name": "Get Existing Matches",
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2,
+      "position": [690, 300],
+      "credentials": {
+        "airtableTokenApi": {
+          "id": "2",
+          "name": "Airtable Personal Access Token"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Generate potential match pairs avoiding duplicates\nconst users = $input.first().json.records || [];\nconst existingMatches = $input.last().json.records || [];\n\n// Create a set of existing match pairs for quick lookup\nconst matchedPairs = new Set();\nexistingMatches.forEach(match => {\n  const user1 = match.fields['User 1'] ? match.fields['User 1'][0] : null;\n  const user2 = match.fields['User 2'] ? match.fields['User 2'][0] : null;\n  if (user1 && user2) {\n    const pair = [user1, user2].sort().join('|');\n    matchedPairs.add(pair);\n  }\n});\n\n// Generate all possible pairs that haven't been matched\nconst potentialMatches = [];\nfor (let i = 0; i < users.length; i++) {\n  for (let j = i + 1; j < users.length; j++) {\n    const user1 = users[i];\n    const user2 = users[j];\n    const pairKey = [user1.id, user2.id].sort().join('|');\n    \n    // Only include if not already matched\n    if (!matchedPairs.has(pairKey)) {\n      potentialMatches.push({\n        user1: {\n          id: user1.id,\n          name: user1.fields['Full Name'] || 'Unknown',\n          location: user1.fields['Location'] || '',\n          job: user1.fields['Job Title'] || '',\n          company: user1.fields['Company'] || '',\n          industry: user1.fields['Industry'] || '',\n          hobbies: user1.fields['Hobbies'] || [],\n          interests: user1.fields['Interests'] || '',\n          skills: user1.fields['Skills'] || [],\n          experience: user1.fields['Years Experience'] || 0,\n          timezone: user1.fields['Timezone'] || '',\n          lookingFor: user1.fields[\"What I'm Looking For\"] || '',\n          discordId: user1.fields['Discord ID'] || ''\n        },\n        user2: {\n          id: user2.id,\n          name: user2.fields['Full Name'] || 'Unknown',\n          location: user2.fields['Location'] || '',\n          job: user2.fields['Job Title'] || '',\n          company: user2.fields['Company'] || '',\n          industry: user2.fields['Industry'] || '',\n          hobbies: user2.fields['Hobbies'] || [],\n          interests: user2.fields['Interests'] || '',\n          skills: user2.fields['Skills'] || [],\n          experience: user2.fields['Years Experience'] || 0,\n          timezone: user2.fields['Timezone'] || '',\n          lookingFor: user2.fields[\"What I'm Looking For\"] || '',\n          discordId: user2.fields['Discord ID'] || ''\n        }\n      });\n    }\n  }\n}\n\nreturn potentialMatches.map(match => ({ json: match }));"
+      },
+      "id": "d4e5f6a7-b8c9-0123-def1-234567890123",
+      "name": "Generate Potential Match Pairs",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [910, 300]
+    },
+    {
+      "parameters": {
+        "model": "gpt-4",
+        "options": {
+          "temperature": 0.3,
+          "maxTokens": 500
+        }
+      },
+      "id": "e5f6a7b8-c9d0-1234-ef12-345678901234",
+      "name": "AI Match Scoring with OpenAI",
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1,
+      "position": [1130, 300],
+      "credentials": {
+        "openAiApi": {
+          "id": "3",
+          "name": "OpenAI API"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=You are an expert matchmaker analyzing compatibility between two people for professional networking and personal connections.\n\n**User 1:**\n- Name: {{ $json.user1.name }}\n- Location: {{ $json.user1.location }}\n- Job: {{ $json.user1.job }} at {{ $json.user1.company }}\n- Industry: {{ $json.user1.industry }}\n- Hobbies: {{ $json.user1.hobbies.join(', ') }}\n- Interests: {{ $json.user1.interests }}\n- Skills: {{ $json.user1.skills.join(', ') }}\n- Experience: {{ $json.user1.experience }} years\n- Timezone: {{ $json.user1.timezone }}\n- Looking for: {{ $json.user1.lookingFor }}\n\n**User 2:**\n- Name: {{ $json.user2.name }}\n- Location: {{ $json.user2.location }}\n- Job: {{ $json.user2.job }} at {{ $json.user2.company }}\n- Industry: {{ $json.user2.industry }}\n- Hobbies: {{ $json.user2.hobbies.join(', ') }}\n- Interests: {{ $json.user2.interests }}\n- Skills: {{ $json.user2.skills.join(', ') }}\n- Experience: {{ $json.user2.experience }} years\n- Timezone: {{ $json.user2.timezone }}\n- Looking for: {{ $json.user2.lookingFor }}\n\n**Task:**\n1. Calculate a compatibility score from 0-100 based on:\n   - Shared interests, hobbies, and skills (40%)\n   - Industry/career alignment and complementary experience (30%)\n   - Geographic proximity and timezone compatibility (20%)\n   - Alignment of what they're looking for (10%)\n\n2. Provide a brief explanation (2-3 sentences) of why they'd be a good match.\n\n**Output format (JSON only):**\n{\n  \"score\": <number 0-100>,\n  \"reason\": \"<brief explanation>\",\n  \"confidence\": \"<high|medium|low>\"\n}",
+        "options": {}
+      },
+      "id": "f6a7b8c9-d0e1-2345-f123-456789012345",
+      "name": "AI Matching Prompt",
+      "type": "@n8n/n8n-nodes-langchain.chatTrigger",
+      "typeVersion": 1.1,
+      "position": [1130, 500]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Parse AI response and filter high-quality matches\nconst items = $input.all();\nconst goodMatches = [];\n\nitems.forEach(item => {\n  try {\n    // Extract JSON from AI response\n    const aiResponse = item.json.response || item.json.output || '';\n    let matchData;\n    \n    // Try to parse as JSON\n    if (typeof aiResponse === 'string') {\n      const jsonMatch = aiResponse.match(/\\{[\\s\\S]*\\}/);\n      if (jsonMatch) {\n        matchData = JSON.parse(jsonMatch[0]);\n      }\n    } else {\n      matchData = aiResponse;\n    }\n    \n    if (matchData && matchData.score >= 60) { // Only matches with 60+ score\n      goodMatches.push({\n        json: {\n          user1_id: item.json.user1.id,\n          user2_id: item.json.user2.id,\n          user1_discord: item.json.user1.discordId,\n          user2_discord: item.json.user2.discordId,\n          user1_name: item.json.user1.name,\n          user2_name: item.json.user2.name,\n          match_score: matchData.score,\n          match_reason: matchData.reason,\n          confidence: matchData.confidence || 'medium'\n        }\n      });\n    }\n  } catch (error) {\n    console.error('Error parsing match:', error);\n  }\n});\n\n// Sort by score descending and return top 10 matches\ngoodMatches.sort((a, b) => b.json.match_score - a.json.match_score);\nreturn goodMatches.slice(0, 10);"
+      },
+      "id": "a7b8c9d0-e1f2-3456-1234-567890123456",
+      "name": "Filter and Rank Matches",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1350, 300]
+    },
+    {
+      "parameters": {
+        "operation": "create",
+        "base": {
+          "__rl": true,
+          "value": "appXXXXXXXXXXXXXX",
+          "mode": "list",
+          "cachedResultName": "Discord Interest Matching"
+        },
+        "table": {
+          "__rl": true,
+          "value": "tblMatches",
+          "mode": "list",
+          "cachedResultName": "Matches"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "User 1": ["={{ $json.user1_id }}"],
+            "User 2": ["={{ $json.user2_id }}"],
+            "Match Score": "={{ $json.match_score }}",
+            "Match Reason": "={{ $json.match_reason }}",
+            "Status": "Pending",
+            "Cal Link Sent": false,
+            "Meeting Scheduled": false,
+            "Meeting Completed": false
+          }
+        },
+        "options": {}
+      },
+      "id": "b8c9d0e1-f2a3-4567-2345-678901234567",
+      "name": "Create Match in Airtable",
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2,
+      "position": [1570, 300],
+      "credentials": {
+        "airtableTokenApi": {
+          "id": "2",
+          "name": "Airtable Personal Access Token"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "channel": "={{ $json.user1_discord }}",
+        "content": "=🎉 **Great news! We found you a match!**\n\n**Matched with:** {{ $json.user2_name }}\n**Compatibility Score:** {{ $json.match_score }}/100 ⭐\n\n**Why you're a great match:**\n{{ $json.match_reason }}\n\n**Next Steps:**\n1. Check your DMs for a Cal.com scheduling link\n2. Book a time that works for both of you\n3. Have a great conversation!\n4. After your meeting, we'll ask for quick feedback to improve future matches\n\nExcited to connect? Your calendar link is coming right up! 📅"
+      },
+      "id": "c9d0e1f2-a3b4-5678-3456-789012345678",
+      "name": "Notify User 1",
+      "type": "n8n-nodes-base.discord",
+      "typeVersion": 1,
+      "position": [1790, 200],
+      "credentials": {
+        "discordApi": {
+          "id": "1",
+          "name": "Discord Bot Account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "channel": "={{ $json.user2_discord }}",
+        "content": "=🎉 **Great news! We found you a match!**\n\n**Matched with:** {{ $json.user1_name }}\n**Compatibility Score:** {{ $json.match_score }}/100 ⭐\n\n**Why you're a great match:**\n{{ $json.match_reason }}\n\n**Next Steps:**\n1. Check your DMs for a Cal.com scheduling link\n2. Book a time that works for both of you\n3. Have a great conversation!\n4. After your meeting, we'll ask for quick feedback to improve future matches\n\nExcited to connect? Your calendar link is coming right up! 📅"
+      },
+      "id": "d0e1f2a3-b4c5-6789-4567-890123456789",
+      "name": "Notify User 2",
+      "type": "n8n-nodes-base.discord",
+      "typeVersion": 1,
+      "position": [1790, 400],
+      "credentials": {
+        "discordApi": {
+          "id": "1",
+          "name": "Discord Bot Account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "workflowId": "={{ 'discord-matching-scheduling' }}",
+        "options": {}
+      },
+      "id": "e1f2a3b4-c5d6-7890-5678-901234567890",
+      "name": "Trigger Scheduling Workflow",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1,
+      "position": [2010, 300]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "number": [
+            {
+              "value1": "={{ $json.length }}",
+              "operation": "larger",
+              "value2": 0
+            }
+          ]
+        }
+      },
+      "id": "f2a3b4c5-d6e7-8901-6789-012345678901",
+      "name": "Any Matches Found?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [1350, 500]
+    },
+    {
+      "parameters": {
+        "content": "=✅ Matching cycle complete!\n\nMatches created: {{ $('Filter and Rank Matches').item.json.length || 0 }}\nTimestamp: {{ $now.toISO() }}\n\nNext matching cycle: In 6 hours",
+        "additionalFields": {}
+      },
+      "id": "a3b4c5d6-e7f8-9012-7890-123456789012",
+      "name": "Log Summary",
+      "type": "n8n-nodes-base.slack",
+      "typeVersion": 1,
+      "position": [2230, 300],
+      "notes": "Optional: Send summary to admin Slack channel"
+    }
+  ],
+  "connections": {
+    "Run Every 6 Hours": {
+      "main": [
+        [
+          {
+            "node": "Get Active Users",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Active Users": {
+      "main": [
+        [
+          {
+            "node": "Get Existing Matches",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Generate Potential Match Pairs",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Existing Matches": {
+      "main": [
+        [
+          {
+            "node": "Generate Potential Match Pairs",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Generate Potential Match Pairs": {
+      "main": [
+        [
+          {
+            "node": "AI Matching Prompt",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Matching Prompt": {
+      "main": [
+        [
+          {
+            "node": "AI Match Scoring with OpenAI",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Match Scoring with OpenAI": {
+      "main": [
+        [
+          {
+            "node": "Filter and Rank Matches",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Filter and Rank Matches": {
+      "main": [
+        [
+          {
+            "node": "Any Matches Found?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Any Matches Found?": {
+      "main": [
+        [
+          {
+            "node": "Create Match in Airtable",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create Match in Airtable": {
+      "main": [
+        [
+          {
+            "node": "Notify User 1",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Notify User 2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Notify User 1": {
+      "main": [
+        [
+          {
+            "node": "Trigger Scheduling Workflow",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Notify User 2": {
+      "main": [
+        [
+          {
+            "node": "Trigger Scheduling Workflow",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Trigger Scheduling Workflow": {
+      "main": [
+        [
+          {
+            "node": "Log Summary",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "1",
+  "id": "discord-matching-engine",
+  "meta": {
+    "instanceId": "your-instance-id"
+  },
+  "tags": [
+    {
+      "name": "AI",
+      "id": "4"
+    },
+    {
+      "name": "LangChain",
+      "id": "5"
+    },
+    {
+      "name": "Matching",
+      "id": "6"
+    }
+  ],
+  "pinData": {},
+  "staticData": null,
+  "createdAt": "2025-11-02T00:00:00.000Z",
+  "updatedAt": "2025-11-02T00:00:00.000Z"
+}
