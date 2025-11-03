@@ -1,0 +1,545 @@
+{
+  "name": "Small Group Dinners - Interest Collection",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "0 9 * * 1"
+            }
+          ]
+        }
+      },
+      "id": "a1b2c3d4-e5f6-7890-abcd-dinner001",
+      "name": "Every Monday 9 AM",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.1,
+      "position": [250, 300],
+      "notes": "Sends weekly dinner invitation every Monday morning"
+    },
+    {
+      "parameters": {
+        "operation": "list",
+        "base": {
+          "__rl": true,
+          "value": "appXXXXXXXXXXXXXX",
+          "mode": "list",
+          "cachedResultName": "Discord Interest Matching"
+        },
+        "table": {
+          "__rl": true,
+          "value": "tblUsers",
+          "mode": "list",
+          "cachedResultName": "Users"
+        },
+        "filterByFormula": "=AND({Status}='Active', {Dinner Interest}=TRUE())",
+        "options": {
+          "useFieldNames": true
+        }
+      },
+      "id": "b2c3d4e5-f6a7-8901-bcde-dinner002",
+      "name": "Get Users Interested in Dinners",
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2,
+      "position": [470, 300],
+      "credentials": {
+        "airtableTokenApi": {
+          "id": "2",
+          "name": "Airtable Personal Access Token"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Calculate this week's date range\nconst now = new Date();\nconst monday = new Date(now);\nmonday.setDate(now.getDate() - now.getDay() + 1); // This Monday\nmonday.setHours(0, 0, 0, 0);\n\nconst wednesday = new Date(monday);\nwednesday.setDate(monday.getDate() + 2);\n\nconst thursday = new Date(monday);\nthursday.setDate(monday.getDate() + 3);\n\nreturn [{\n  json: {\n    weekOf: monday.toISOString().split('T')[0],\n    wednesdayDate: wednesday.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' }),\n    thursdayDate: thursday.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' }),\n    formUrl: 'https://airtable.com/shrDINNERRSVP?prefill_WeekOf=' + monday.toISOString().split('T')[0]\n  }\n}];"
+      },
+      "id": "c3d4e5f6-a7b8-9012-cdef-dinner003",
+      "name": "Calculate This Week Dates",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [690, 300]
+    },
+    {
+      "parameters": {
+        "channel": "general",
+        "embeds": [
+          {
+            "title": "🍽️ Small Group Dinners This Week!",
+            "description": "Join us for intimate dinners with 5-6 interesting people from the community!",
+            "color": 15844367,
+            "fields": [
+              {
+                "name": "📅 When",
+                "value": "=**Wednesday**: {{ $json.wednesdayDate }}\\n**Thursday**: {{ $json.thursdayDate }}\\n**Time**: 7:00 PM",
+                "inline": false
+              },
+              {
+                "name": "📍 Where",
+                "value": "Location announced Tuesday (based on your preferences)",
+                "inline": false
+              },
+              {
+                "name": "👥 Who",
+                "value": "Groups of 5-6 people with diverse backgrounds and interests",
+                "inline": false
+              },
+              {
+                "name": "🎯 What to Expect",
+                "value": "• Great conversations with new people\\n• Balanced, diverse groups\\n• Casual, fun atmosphere\\n• Connect beyond virtual calls",
+                "inline": false
+              },
+              {
+                "name": "🔗 Sign Up",
+                "value": "=**RSVP by Tuesday 5 PM**: {{ $json.formUrl }}\\n\\n_Limited spots available!_",
+                "inline": false
+              }
+            ],
+            "footer": {
+              "text": "Questions? Reply here or DM the bot with /dinner-help"
+            },
+            "thumbnail": {
+              "url": "https://em-content.zobj.net/thumbs/120/apple/354/fork-and-knife_1f374.png"
+            }
+          }
+        ]
+      },
+      "id": "d4e5f6a7-b8c9-0123-def1-dinner004",
+      "name": "Send to Discord Channel",
+      "type": "n8n-nodes-base.discord",
+      "typeVersion": 1,
+      "position": [910, 300],
+      "credentials": {
+        "discordApi": {
+          "id": "1",
+          "name": "Discord Bot Account"
+        }
+      },
+      "notes": "Posts to main Discord channel"
+    },
+    {
+      "parameters": {
+        "channel": "={{ $('Get Users Interested in Dinners').item.json.fields['Discord ID'] }}",
+        "content": "=👋 Hey {{ $('Get Users Interested in Dinners').item.json.fields['Full Name'].split(' ')[0] }}!\n\n🍽️ **Small group dinners are happening this week!**\n\n**Wednesday** ({{ $('Calculate This Week Dates').item.json.wednesdayDate }}) or **Thursday** ({{ $('Calculate This Week Dates').item.json.thursdayDate }}) at 7 PM\n\nWe create groups of 5-6 people with diverse backgrounds for great conversations over dinner.\n\n**🔗 RSVP here** (by Tuesday 5 PM): {{ $('Calculate This Week Dates').item.json.formUrl }}\n\nLooking forward to seeing you there! 🎉"
+      },
+      "id": "e5f6a7b8-c9d0-1234-ef12-dinner005",
+      "name": "Send DM to Interested Users",
+      "type": "n8n-nodes-base.discord",
+      "typeVersion": 1,
+      "position": [910, 500],
+      "credentials": {
+        "discordApi": {
+          "id": "1",
+          "name": "Discord Bot Account"
+        }
+      },
+      "notes": "Personal DM to users who opted into dinners"
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "dinner-rsvp-submitted",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "f6a7b8c9-d0e1-2345-f123-dinner006",
+      "name": "RSVP Form Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [250, 700],
+      "webhookId": "dinner-rsvp-webhook",
+      "notes": "Triggered when user submits RSVP form"
+    },
+    {
+      "parameters": {
+        "operation": "create",
+        "base": {
+          "__rl": true,
+          "value": "appXXXXXXXXXXXXXX",
+          "mode": "list",
+          "cachedResultName": "Discord Interest Matching"
+        },
+        "table": {
+          "__rl": true,
+          "value": "tblDinnerRSVPs",
+          "mode": "list",
+          "cachedResultName": "Dinner_RSVPs"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "User": ["={{ $json.user_id }}"],
+            "Week Of": "={{ $json.week_of }}",
+            "Preferred Day": "={{ $json.preferred_day }}",
+            "Preferred Areas": "={{ $json.preferred_areas }}",
+            "Dietary Restrictions": "={{ $json.dietary_restrictions }}",
+            "Dietary Notes": "={{ $json.dietary_notes }}",
+            "Topics of Interest": "={{ $json.topics_interest }}",
+            "Status": "Interested",
+            "Confirmed": false,
+            "Attended": false,
+            "Reminder Sent": false
+          }
+        },
+        "options": {}
+      },
+      "id": "a7b8c9d0-e1f2-3456-1234-dinner007",
+      "name": "Create RSVP in Airtable",
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2,
+      "position": [470, 700],
+      "credentials": {
+        "airtableTokenApi": {
+          "id": "2",
+          "name": "Airtable Personal Access Token"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "get",
+        "base": {
+          "__rl": true,
+          "value": "appXXXXXXXXXXXXXX",
+          "mode": "list",
+          "cachedResultName": "Discord Interest Matching"
+        },
+        "table": {
+          "__rl": true,
+          "value": "tblUsers",
+          "mode": "list",
+          "cachedResultName": "Users"
+        },
+        "id": "={{ $json.user_id }}"
+      },
+      "id": "b8c9d0e1-f2a3-4567-2345-dinner008",
+      "name": "Get User Details",
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2,
+      "position": [690, 700],
+      "credentials": {
+        "airtableTokenApi": {
+          "id": "2",
+          "name": "Airtable Personal Access Token"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "channel": "={{ $json.fields['Discord ID'] }}",
+        "embeds": [
+          {
+            "title": "✅ You're on the list!",
+            "description": "=Thanks for signing up, {{ $json.fields['Full Name'].split(' ')[0] }}!",
+            "color": 5763719,
+            "fields": [
+              {
+                "name": "📅 Your Preferences",
+                "value": "=**Day**: {{ $('Create RSVP in Airtable').item.json.fields['Preferred Day'] }}\\n**Areas**: {{ $('Create RSVP in Airtable').item.json.fields['Preferred Areas'].join(', ') }}",
+                "inline": false
+              },
+              {
+                "name": "⏰ What's Next",
+                "value": "• **Tuesday evening**: We'll assign you to a group\\n• **Wednesday/Thursday**: You'll get dinner details (location, time, who's coming)\\n• **Day before**: Final reminder\\n• **After dinner**: Quick feedback survey",
+                "inline": false
+              },
+              {
+                "name": "🎯 Tips",
+                "value": "• Come with an open mind\\n• Be curious about others\\n• Share your story\\n• Exchange contacts if you connect!",
+                "inline": false
+              }
+            ],
+            "footer": {
+              "text": "Need to change your RSVP? Just submit the form again or DM us"
+            }
+          }
+        ]
+      },
+      "id": "c9d0e1f2-a3b4-5678-3456-dinner009",
+      "name": "Send RSVP Confirmation",
+      "type": "n8n-nodes-base.discord",
+      "typeVersion": 1,
+      "position": [910, 700],
+      "credentials": {
+        "discordApi": {
+          "id": "1",
+          "name": "Discord Bot Account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { \"success\": true, \"message\": \"RSVP recorded! Check your Discord DM for confirmation.\", \"rsvp_id\": $('Create RSVP in Airtable').item.json.id } }}",
+        "options": {}
+      },
+      "id": "d0e1f2a3-b4c5-6789-4567-dinner010",
+      "name": "Respond to Webhook",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [1130, 700]
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "0 17 * * 2"
+            }
+          ]
+        }
+      },
+      "id": "e1f2a3b4-c5d6-7890-5678-dinner011",
+      "name": "Tuesday 5 PM - RSVP Deadline",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.1,
+      "position": [250, 1000],
+      "notes": "Closes RSVPs and prepares for group formation"
+    },
+    {
+      "parameters": {
+        "operation": "list",
+        "base": {
+          "__rl": true,
+          "value": "appXXXXXXXXXXXXXX",
+          "mode": "list",
+          "cachedResultName": "Discord Interest Matching"
+        },
+        "table": {
+          "__rl": true,
+          "value": "tblDinnerRSVPs",
+          "mode": "list",
+          "cachedResultName": "Dinner_RSVPs"
+        },
+        "filterByFormula": "=AND({Status}='Interested', {Week Of}=TODAY())",
+        "options": {
+          "useFieldNames": true
+        }
+      },
+      "id": "f2a3b4c5-d6e7-8901-6789-dinner012",
+      "name": "Get This Week RSVPs",
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2,
+      "position": [470, 1000],
+      "credentials": {
+        "airtableTokenApi": {
+          "id": "2",
+          "name": "Airtable Personal Access Token"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "content": "=📊 **RSVP Deadline Passed**\n\nThis week's RSVPs: {{ $json.records.length }}\n\nStarting group formation...\nGroups will be announced shortly!",
+        "channel": "admin-channel",
+        "additionalFields": {}
+      },
+      "id": "a3b4c5d6-e7f8-9012-7890-dinner013",
+      "name": "Notify Admin",
+      "type": "n8n-nodes-base.slack",
+      "typeVersion": 1,
+      "position": [690, 1000],
+      "notes": "Optional: Post to admin Slack/Discord"
+    },
+    {
+      "parameters": {
+        "workflowId": "discord-dinner-group-formation",
+        "options": {}
+      },
+      "id": "b4c5d6e7-f8a9-0123-8901-dinner014",
+      "name": "Trigger Group Formation",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1,
+      "position": [910, 1000]
+    },
+    {
+      "parameters": {
+        "channel": "={{ $json.discord_id }}",
+        "content": "/dinner-rsvp"
+      },
+      "id": "c5d6e7f8-a9b0-1234-9012-dinner015",
+      "name": "Handle /dinner-rsvp Command",
+      "type": "n8n-nodes-base.discordTrigger",
+      "typeVersion": 1,
+      "position": [250, 1300],
+      "webhookId": "discord-dinner-rsvp-command",
+      "credentials": {
+        "discordApi": {
+          "id": "1",
+          "name": "Discord Bot Account"
+        }
+      },
+      "notes": "Slash command for quick RSVP"
+    },
+    {
+      "parameters": {
+        "channel": "={{ $json.channel_id }}",
+        "content": "=🍽️ **Sign up for this week's small group dinner!**\n\nFill out this quick form: {{ $('Calculate This Week Dates').item.json.formUrl }}\n\nDeadline: Tuesday 5 PM"
+      },
+      "id": "d6e7f8a9-b0c1-2345-0123-dinner016",
+      "name": "Send RSVP Link",
+      "type": "n8n-nodes-base.discord",
+      "typeVersion": 1,
+      "position": [470, 1300],
+      "credentials": {
+        "discordApi": {
+          "id": "1",
+          "name": "Discord Bot Account"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Every Monday 9 AM": {
+      "main": [
+        [
+          {
+            "node": "Get Users Interested in Dinners",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Users Interested in Dinners": {
+      "main": [
+        [
+          {
+            "node": "Calculate This Week Dates",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Calculate This Week Dates": {
+      "main": [
+        [
+          {
+            "node": "Send to Discord Channel",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Send DM to Interested Users",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "RSVP Form Webhook": {
+      "main": [
+        [
+          {
+            "node": "Create RSVP in Airtable",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create RSVP in Airtable": {
+      "main": [
+        [
+          {
+            "node": "Get User Details",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get User Details": {
+      "main": [
+        [
+          {
+            "node": "Send RSVP Confirmation",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send RSVP Confirmation": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Tuesday 5 PM - RSVP Deadline": {
+      "main": [
+        [
+          {
+            "node": "Get This Week RSVPs",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get This Week RSVPs": {
+      "main": [
+        [
+          {
+            "node": "Notify Admin",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Notify Admin": {
+      "main": [
+        [
+          {
+            "node": "Trigger Group Formation",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Handle /dinner-rsvp Command": {
+      "main": [
+        [
+          {
+            "node": "Calculate This Week Dates",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "1",
+  "id": "discord-dinner-interest",
+  "meta": {
+    "instanceId": "your-instance-id"
+  },
+  "tags": [
+    {
+      "name": "Small Group Dinners",
+      "id": "11"
+    },
+    {
+      "name": "RSVP",
+      "id": "12"
+    }
+  ],
+  "pinData": {},
+  "staticData": null,
+  "createdAt": "2025-11-02T00:00:00.000Z",
+  "updatedAt": "2025-11-02T00:00:00.000Z"
+}

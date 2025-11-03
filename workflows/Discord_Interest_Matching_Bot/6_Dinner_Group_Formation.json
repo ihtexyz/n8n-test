@@ -1,0 +1,439 @@
+{
+  "name": "Small Group Dinners - Balanced Group Formation",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "form-dinner-groups",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "a1b2c3d4-e5f6-7890-abcd-groups001",
+      "name": "Webhook Trigger",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [250, 300],
+      "webhookId": "form-groups-webhook",
+      "notes": "Triggered by Workflow 5 or manually"
+    },
+    {
+      "parameters": {
+        "operation": "list",
+        "base": {
+          "__rl": true,
+          "value": "appXXXXXXXXXXXXXX",
+          "mode": "list",
+          "cachedResultName": "Discord Interest Matching"
+        },
+        "table": {
+          "__rl": true,
+          "value": "tblDinnerRSVPs",
+          "mode": "list",
+          "cachedResultName": "Dinner_RSVPs"
+        },
+        "filterByFormula": "=AND({Status}='Interested', DATETIME_DIFF({Week Of}, TODAY(), 'days') <= 7)",
+        "options": {
+          "useFieldNames": true
+        }
+      },
+      "id": "b2c3d4e5-f6a7-8901-bcde-groups002",
+      "name": "Get All RSVPs This Week",
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2,
+      "position": [470, 300],
+      "credentials": {
+        "airtableTokenApi": {
+          "id": "2",
+          "name": "Airtable Personal Access Token"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "list",
+        "base": {
+          "__rl": true,
+          "value": "appXXXXXXXXXXXXXX",
+          "mode": "list",
+          "cachedResultName": "Discord Interest Matching"
+        },
+        "table": {
+          "__rl": true,
+          "value": "tblUsers",
+          "mode": "list",
+          "cachedResultName": "Users"
+        },
+        "options": {
+          "useFieldNames": true
+        }
+      },
+      "id": "c3d4e5f6-a7b8-9012-cdef-groups003",
+      "name": "Get All Users",
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2,
+      "position": [690, 300],
+      "credentials": {
+        "airtableTokenApi": {
+          "id": "2",
+          "name": "Airtable Personal Access Token"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "list",
+        "base": {
+          "__rl": true,
+          "value": "appXXXXXXXXXXXXXX",
+          "mode": "list",
+          "cachedResultName": "Discord Interest Matching"
+        },
+        "table": {
+          "__rl": true,
+          "value": "tblDinnerEvents",
+          "mode": "list",
+          "cachedResultName": "Dinner_Events"
+        },
+        "filterByFormula": "=DATETIME_DIFF(NOW(), {Date}, 'days') <= 28",
+        "options": {
+          "useFieldNames": true
+        }
+      },
+      "id": "d4e5f6a7-b8c9-0123-def1-groups004",
+      "name": "Get Recent Dinners (4 weeks)",
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2,
+      "position": [690, 500],
+      "credentials": {
+        "airtableTokenApi": {
+          "id": "2",
+          "name": "Airtable Personal Access Token"
+        }
+      },
+      "notes": "To avoid repeat groupings"
+    },
+    {
+      "parameters": {
+        "jsCode": "// BALANCED GROUP FORMATION ALGORITHM\n// Goal: Create diverse, balanced groups of 5-6 people\n\nconst rsvps = $('Get All RSVPs This Week').first().json.records || [];\nconst users = $('Get All Users').first().json.records || [];\nconst recentDinners = $('Get Recent Dinners (4 weeks)').first().json.records || [];\n\n// Create user lookup map\nconst userMap = {};\nusers.forEach(user => {\n  userMap[user.id] = user.fields;\n});\n\n// Track recent groupings to avoid repeats\nconst recentPairings = new Set();\nrecentDinners.forEach(dinner => {\n  const attendees = dinner.fields['Attendees'] || [];\n  for (let i = 0; i < attendees.length; i++) {\n    for (let j = i + 1; j < attendees.length; j++) {\n      const pair = [attendees[i], attendees[j]].sort().join('|');\n      recentPairings.add(pair);\n    }\n  }\n});\n\n// Enrich RSVPs with user data\nconst enrichedRSVPs = rsvps.map(rsvp => {\n  const userId = rsvp.fields['User'] ? rsvp.fields['User'][0] : null;\n  const userData = userMap[userId] || {};\n  \n  return {\n    rsvpId: rsvp.id,\n    userId: userId,\n    preferredDay: rsvp.fields['Preferred Day'] || 'Either',\n    preferredAreas: rsvp.fields['Preferred Areas'] || [],\n    dietaryRestrictions: rsvp.fields['Dietary Restrictions'] || [],\n    topicsInterest: rsvp.fields['Topics of Interest'] || [],\n    // User profile data\n    name: userData['Full Name'] || 'Unknown',\n    industry: userData['Industry'] || 'Other',\n    jobTitle: userData['Job Title'] || '',\n    company: userData['Company'] || '',\n    experience: userData['Years Experience'] || 0,\n    discordId: userData['Discord ID'] || '',\n    location: userData['Location'] || ''\n  };\n}).filter(rsvp => rsvp.userId); // Remove any invalid RSVPs\n\nif (enrichedRSVPs.length === 0) {\n  return [{ json: { groups: [], message: 'No RSVPs to process' } }];\n}\n\n// Split by day preference\nconst wednesdayRSVPs = enrichedRSVPs.filter(r => r.preferredDay === 'Wednesday' || r.preferredDay === 'Either');\nconst thursdayRSVPs = enrichedRSVPs.filter(r => r.preferredDay === 'Thursday' || r.preferredDay === 'Either');\n\n// Function to calculate diversity score between two people\nfunction diversityScore(person1, person2) {\n  let score = 0;\n  \n  // Different industries = higher diversity (20 points)\n  if (person1.industry !== person2.industry) score += 20;\n  \n  // Different experience levels (15 points)\n  const expDiff = Math.abs(person1.experience - person2.experience);\n  if (expDiff >= 5) score += 15;\n  else if (expDiff >= 2) score += 10;\n  \n  // Different companies (10 points)\n  if (person1.company !== person2.company && person1.company && person2.company) score += 10;\n  \n  // Compatible dietary restrictions (20 points for compatibility)\n  const diet1 = person1.dietaryRestrictions;\n  const diet2 = person2.dietaryRestrictions;\n  if (diet1.length === 0 && diet2.length === 0) score += 20; // No restrictions\n  else {\n    const hasCompatible = diet1.some(d => diet2.includes(d)) || diet1.length === 0 || diet2.length === 0;\n    if (hasCompatible) score += 15;\n  }\n  \n  // Shared topics of interest (10 points)\n  const sharedTopics = person1.topicsInterest.filter(t => person2.topicsInterest.includes(t));\n  if (sharedTopics.length > 0) score += 10;\n  \n  // Location overlap (10 points)\n  const area1 = person1.preferredAreas;\n  const area2 = person2.preferredAreas;\n  const sharedAreas = area1.filter(a => area2.includes(a));\n  if (sharedAreas.length > 0) score += 10;\n  \n  // Penalize recent pairings (-50 points)\n  const pairKey = [person1.userId, person2.userId].sort().join('|');\n  if (recentPairings.has(pairKey)) score -= 50;\n  \n  return score;\n}\n\n// Function to form balanced groups\nfunction formGroups(people, targetSize = 6) {\n  if (people.length === 0) return [];\n  \n  const groups = [];\n  const assigned = new Set();\n  \n  // Shuffle for randomness\n  const shuffled = [...people].sort(() => Math.random() - 0.5);\n  \n  while (shuffled.length - assigned.size >= targetSize) {\n    const group = [];\n    const available = shuffled.filter(p => !assigned.has(p.userId));\n    \n    if (available.length === 0) break;\n    \n    // Start with a random person\n    const seed = available[Math.floor(Math.random() * available.length)];\n    group.push(seed);\n    assigned.add(seed.userId);\n    \n    // Add people to maximize diversity\n    while (group.length < targetSize && available.filter(p => !assigned.has(p.userId)).length > 0) {\n      const remaining = available.filter(p => !assigned.has(p.userId));\n      \n      // Calculate average diversity score with current group\n      const scores = remaining.map(person => {\n        const avgDiversity = group.reduce((sum, groupMember) => {\n          return sum + diversityScore(person, groupMember);\n        }, 0) / group.length;\n        \n        return { person, score: avgDiversity };\n      });\n      \n      // Sort by diversity score (higher = more diverse)\n      scores.sort((a, b) => b.score - a.score);\n      \n      // Pick from top 3 to add some randomness\n      const topCandidates = scores.slice(0, Math.min(3, scores.length));\n      const selected = topCandidates[Math.floor(Math.random() * topCandidates.length)].person;\n      \n      group.push(selected);\n      assigned.add(selected.userId);\n    }\n    \n    groups.push(group);\n  }\n  \n  // Handle remaining people (less than targetSize)\n  const unassigned = shuffled.filter(p => !assigned.has(p.userId));\n  if (unassigned.length >= 3 && unassigned.length < targetSize) {\n    // Create a smaller group if we have at least 3 people\n    groups.push(unassigned);\n  } else if (unassigned.length > 0 && groups.length > 0) {\n    // Distribute to existing groups\n    unassigned.forEach((person, idx) => {\n      groups[idx % groups.length].push(person);\n    });\n  }\n  \n  return groups;\n}\n\n// Form groups for each day\nconst wednesdayGroups = formGroups(wednesdayRSVPs);\nconst thursdayGroups = formGroups(thursdayRSVPs);\n\n// Calculate this week's dates\nconst now = new Date();\nconst monday = new Date(now);\nmonday.setDate(now.getDate() - now.getDay() + 1);\nmonday.setHours(0, 0, 0, 0);\n\nconst wednesday = new Date(monday);\nwednesday.setDate(monday.getDate() + 2);\n\nconst thursday = new Date(monday);\nthursday.setDate(monday.getDate() + 3);\n\n// Format output\nconst allGroups = [\n  ...wednesdayGroups.map((group, idx) => ({\n    day: 'Wednesday',\n    date: wednesday.toISOString().split('T')[0],\n    groupNumber: idx + 1,\n    people: group,\n    size: group.length\n  })),\n  ...thursdayGroups.map((group, idx) => ({\n    day: 'Thursday',\n    date: thursday.toISOString().split('T')[0],\n    groupNumber: idx + 1,\n    people: group,\n    size: group.length\n  }))\n];\n\nreturn allGroups.map(group => ({ json: group }));"
+      },
+      "id": "e5f6a7b8-c9d0-1234-ef12-groups005",
+      "name": "Balance Group Formation Algorithm",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [910, 300],
+      "notes": "Core algorithm - creates diverse groups"
+    },
+    {
+      "parameters": {
+        "operation": "create",
+        "base": {
+          "__rl": true,
+          "value": "appXXXXXXXXXXXXXX",
+          "mode": "list",
+          "cachedResultName": "Discord Interest Matching"
+        },
+        "table": {
+          "__rl": true,
+          "value": "tblDinnerEvents",
+          "mode": "list",
+          "cachedResultName": "Dinner_Events"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "Week Of": "={{ $now.toFormat('yyyy-MM-dd') }}",
+            "Day": "={{ $json.day }}",
+            "Date": "={{ $json.date }}",
+            "Time": "7:00 PM",
+            "Group Size": "={{ $json.size }}",
+            "Theme/Topic": "Open Discussion",
+            "Status": "Planning",
+            "Attendees": "={{ $json.people.map(p => p.rsvpId) }}"
+          }
+        },
+        "options": {}
+      },
+      "id": "f6a7b8c9-d0e1-2345-f123-groups006",
+      "name": "Create Dinner Event",
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2,
+      "position": [1130, 300],
+      "credentials": {
+        "airtableTokenApi": {
+          "id": "2",
+          "name": "Airtable Personal Access Token"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "base": {
+          "__rl": true,
+          "value": "appXXXXXXXXXXXXXX",
+          "mode": "list",
+          "cachedResultName": "Discord Interest Matching"
+        },
+        "table": {
+          "__rl": true,
+          "value": "tblDinnerRSVPs",
+          "mode": "list",
+          "cachedResultName": "Dinner_RSVPs"
+        },
+        "id": "={{ $json.rsvpId }}",
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "Status": "Assigned",
+            "Assigned Event": ["={{ $('Create Dinner Event').item.json.id }}"]
+          }
+        }
+      },
+      "id": "a7b8c9d0-e1f2-3456-1234-groups007",
+      "name": "Update RSVP Status",
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2,
+      "position": [1350, 300],
+      "credentials": {
+        "airtableTokenApi": {
+          "id": "2",
+          "name": "Airtable Personal Access Token"
+        }
+      },
+      "notes": "Mark RSVPs as assigned"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Prepare notification data for each group member\nconst groupData = $('Balance Group Formation Algorithm').item.json;\nconst eventId = $('Create Dinner Event').item.json.id;\n\nconst notifications = groupData.people.map(person => ({\n  json: {\n    discordId: person.discordId,\n    name: person.name.split(' ')[0],\n    day: groupData.day,\n    date: new Date(groupData.date).toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' }),\n    groupSize: groupData.size,\n    groupMembers: groupData.people.map(p => p.name).join(', '),\n    eventId: eventId\n  }\n}));\n\nreturn notifications;"
+      },
+      "id": "b8c9d0e1-f2a3-4567-2345-groups008",
+      "name": "Prepare Group Notifications",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1570, 300]
+    },
+    {
+      "parameters": {
+        "channel": "={{ $json.discordId }}",
+        "embeds": [
+          {
+            "title": "🎉 You've been matched to a dinner group!",
+            "description": "=Great news, {{ $json.name }}! Your small group dinner is set.",
+            "color": 15844367,
+            "fields": [
+              {
+                "name": "📅 When",
+                "value": "={{ $json.day }}, {{ $json.date }} at 7:00 PM",
+                "inline": false
+              },
+              {
+                "name": "📍 Where",
+                "value": "Location will be announced Wednesday morning (based on group preferences)",
+                "inline": false
+              },
+              {
+                "name": "👥 Your Group ({{ $json.groupSize }} people)",
+                "value": "={{ $json.groupMembers }}",
+                "inline": false
+              },
+              {
+                "name": "💬 Group Chat",
+                "value": "A Discord thread will be created for your group to coordinate!",
+                "inline": false
+              },
+              {
+                "name": "⏰ Next Steps",
+                "value": "• **Wednesday AM**: Get location details\\n• **Day before**: Final reminder\\n• **Day of**: Meet your group and enjoy!",
+                "inline": false
+              },
+              {
+                "name": "🎯 Make it Great",
+                "value": "• Be on time\\n• Come with curiosity\\n• Ask questions\\n• Share your story\\n• Exchange contacts if you click!",
+                "inline": false
+              }
+            ],
+            "footer": {
+              "text": "Can't make it? Let us know ASAP so we can adjust the group"
+            }
+          }
+        ]
+      },
+      "id": "c9d0e1f2-a3b4-5678-3456-groups009",
+      "name": "Send Group Assignment DM",
+      "type": "n8n-nodes-base.discord",
+      "typeVersion": 1,
+      "position": [1790, 300],
+      "credentials": {
+        "discordApi": {
+          "id": "1",
+          "name": "Discord Bot Account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "content": "=📊 **Group Formation Complete!**\n\nGroups created: {{ $('Balance Group Formation Algorithm').all().length }}\nTotal attendees: {{ $('Balance Group Formation Algorithm').all().reduce((sum, g) => sum + g.json.size, 0) }}\n\n**Wednesday**: {{ $('Balance Group Formation Algorithm').all().filter(g => g.json.day === 'Wednesday').length }} groups\n**Thursday**: {{ $('Balance Group Formation Algorithm').all().filter(g => g.json.day === 'Thursday').length }} groups\n\nAll participants have been notified via DM.",
+        "channel": "admin-channel",
+        "additionalFields": {}
+      },
+      "id": "d0e1f2a3-b4c5-6789-4567-groups010",
+      "name": "Admin Summary",
+      "type": "n8n-nodes-base.slack",
+      "typeVersion": 1,
+      "position": [2010, 300],
+      "notes": "Optional admin notification"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { \"success\": true, \"groups_created\": $('Balance Group Formation Algorithm').all().length, \"total_attendees\": $('Balance Group Formation Algorithm').all().reduce((sum, g) => sum + g.json.size, 0) } }}",
+        "options": {}
+      },
+      "id": "e1f2a3b4-c5d6-7890-5678-groups011",
+      "name": "Respond to Webhook",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [2230, 300]
+    }
+  ],
+  "connections": {
+    "Webhook Trigger": {
+      "main": [
+        [
+          {
+            "node": "Get All RSVPs This Week",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get All RSVPs This Week": {
+      "main": [
+        [
+          {
+            "node": "Get All Users",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Get Recent Dinners (4 weeks)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get All Users": {
+      "main": [
+        [
+          {
+            "node": "Balance Group Formation Algorithm",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Recent Dinners (4 weeks)": {
+      "main": [
+        [
+          {
+            "node": "Balance Group Formation Algorithm",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Balance Group Formation Algorithm": {
+      "main": [
+        [
+          {
+            "node": "Create Dinner Event",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create Dinner Event": {
+      "main": [
+        [
+          {
+            "node": "Update RSVP Status",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Update RSVP Status": {
+      "main": [
+        [
+          {
+            "node": "Prepare Group Notifications",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Group Notifications": {
+      "main": [
+        [
+          {
+            "node": "Send Group Assignment DM",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send Group Assignment DM": {
+      "main": [
+        [
+          {
+            "node": "Admin Summary",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Admin Summary": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "1",
+  "id": "discord-dinner-group-formation",
+  "meta": {
+    "instanceId": "your-instance-id"
+  },
+  "tags": [
+    {
+      "name": "Small Group Dinners",
+      "id": "11"
+    },
+    {
+      "name": "Algorithm",
+      "id": "13"
+    }
+  ],
+  "pinData": {},
+  "staticData": null,
+  "createdAt": "2025-11-02T00:00:00.000Z",
+  "updatedAt": "2025-11-02T00:00:00.000Z"
+}

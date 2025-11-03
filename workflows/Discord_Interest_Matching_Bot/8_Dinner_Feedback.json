@@ -1,0 +1,652 @@
+{
+  "name": "Small Group Dinners - Feedback Collection",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "0 10 * * 4,5"
+            }
+          ]
+        }
+      },
+      "id": "a1b2c3d4-e5f6-7890-abcd-feedback001",
+      "name": "Thursday & Friday 10 AM",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.1,
+      "position": [250, 300],
+      "notes": "Collect feedback day after dinners"
+    },
+    {
+      "parameters": {
+        "operation": "list",
+        "base": {
+          "__rl": true,
+          "value": "appXXXXXXXXXXXXXX",
+          "mode": "list",
+          "cachedResultName": "Discord Interest Matching"
+        },
+        "table": {
+          "__rl": true,
+          "value": "tblDinnerEvents",
+          "mode": "list",
+          "cachedResultName": "Dinner_Events"
+        },
+        "filterByFormula": "=AND({Status}='Confirmed', DATETIME_DIFF(TODAY(), {Date}, 'days') = 1)",
+        "options": {
+          "useFieldNames": true
+        }
+      },
+      "id": "b2c3d4e5-f6a7-8901-bcde-feedback002",
+      "name": "Get Yesterday's Dinners",
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2,
+      "position": [470, 300],
+      "credentials": {
+        "airtableTokenApi": {
+          "id": "2",
+          "name": "Airtable Personal Access Token"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "list",
+        "base": {
+          "__rl": true,
+          "value": "appXXXXXXXXXXXXXX",
+          "mode": "list",
+          "cachedResultName": "Discord Interest Matching"
+        },
+        "table": {
+          "__rl": true,
+          "value": "tblDinnerRSVPs",
+          "mode": "list",
+          "cachedResultName": "Dinner_RSVPs"
+        },
+        "filterByFormula": "=FIND('{{ $json.id }}', ARRAYJOIN({Assigned Event}))",
+        "options": {
+          "useFieldNames": true
+        }
+      },
+      "id": "c3d4e5f6-a7b8-9012-cdef-feedback003",
+      "name": "Get Event Attendees",
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2,
+      "position": [690, 300],
+      "credentials": {
+        "airtableTokenApi": {
+          "id": "2",
+          "name": "Airtable Personal Access Token"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "get",
+        "base": {
+          "__rl": true,
+          "value": "appXXXXXXXXXXXXXX",
+          "mode": "list",
+          "cachedResultName": "Discord Interest Matching"
+        },
+        "table": {
+          "__rl": true,
+          "value": "tblUsers",
+          "mode": "list",
+          "cachedResultName": "Users"
+        },
+        "id": "={{ $json.fields['User'][0] }}"
+      },
+      "id": "d4e5f6a7-b8c9-0123-def1-feedback004",
+      "name": "Get User Details",
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2,
+      "position": [910, 300],
+      "credentials": {
+        "airtableTokenApi": {
+          "id": "2",
+          "name": "Airtable Personal Access Token"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "channel": "={{ $json.fields['Discord ID'] }}",
+        "embeds": [
+          {
+            "title": "⭐ How was dinner?",
+            "description": "=Thanks for joining last night's dinner at {{ $('Get Yesterday's Dinners').item.json.fields['Location Name'] }}!",
+            "color": 15844367,
+            "fields": [
+              {
+                "name": "📝 Quick Feedback",
+                "value": "Your input helps us create even better dinners! Takes just 2 minutes.",
+                "inline": false
+              },
+              {
+                "name": "🔗 Feedback Form",
+                "value": "=https://airtable.com/shrDINNERFEEDBACK?prefill_Event={{ $('Get Yesterday's Dinners').item.json.id }}&prefill_User={{ $json.id }}",
+                "inline": false
+              },
+              {
+                "name": "🎯 What We Ask",
+                "value": "• How was the overall experience?\\n• Group dynamics and conversations\\n• Location and venue\\n• Would you attend again?\\n• Any suggestions?",
+                "inline": false
+              }
+            ],
+            "footer": {
+              "text": "Your feedback is confidential and helps improve future dinners"
+            }
+          }
+        ]
+      },
+      "id": "e5f6a7b8-c9d0-1234-ef12-feedback005",
+      "name": "Send Feedback Request DM",
+      "type": "n8n-nodes-base.discord",
+      "typeVersion": 1,
+      "position": [1130, 300],
+      "credentials": {
+        "discordApi": {
+          "id": "1",
+          "name": "Discord Bot Account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "dinner-feedback-submitted",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "f6a7b8c9-d0e1-2345-f123-feedback006",
+      "name": "Feedback Form Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [250, 700],
+      "webhookId": "dinner-feedback-webhook",
+      "notes": "Triggered when feedback form is submitted"
+    },
+    {
+      "parameters": {
+        "operation": "create",
+        "base": {
+          "__rl": true,
+          "value": "appXXXXXXXXXXXXXX",
+          "mode": "list",
+          "cachedResultName": "Discord Interest Matching"
+        },
+        "table": {
+          "__rl": true,
+          "value": "tblDinnerFeedback",
+          "mode": "list",
+          "cachedResultName": "Dinner_Feedback"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "Dinner Event": ["={{ $json.event_id }}"],
+            "User": ["={{ $json.user_id }}"],
+            "Overall Rating": "={{ $json.overall_rating }}",
+            "Group Dynamics": "={{ $json.group_dynamics }}",
+            "Conversation Quality": "={{ $json.conversation_quality }}",
+            "Location Rating": "={{ $json.location_rating }}",
+            "Would Attend Again": "={{ $json.would_attend_again }}",
+            "Favorite Moments": "={{ $json.favorite_moments }}",
+            "Suggestions": "={{ $json.suggestions }}",
+            "Topics Discussed": "={{ $json.topics_discussed }}",
+            "Met Interesting People": "={{ $json.met_interesting_people }}"
+          }
+        },
+        "options": {}
+      },
+      "id": "a7b8c9d0-e1f2-3456-1234-feedback007",
+      "name": "Save Feedback to Airtable",
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2,
+      "position": [470, 700],
+      "credentials": {
+        "airtableTokenApi": {
+          "id": "2",
+          "name": "Airtable Personal Access Token"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "base": {
+          "__rl": true,
+          "value": "appXXXXXXXXXXXXXX",
+          "mode": "list",
+          "cachedResultName": "Discord Interest Matching"
+        },
+        "table": {
+          "__rl": true,
+          "value": "tblDinnerRSVPs",
+          "mode": "list",
+          "cachedResultName": "Dinner_RSVPs"
+        },
+        "filterByFormula": "=AND({User}='{{ $json.user_id }}', FIND('{{ $json.event_id }}', ARRAYJOIN({Assigned Event})))",
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "Attended": true
+          }
+        }
+      },
+      "id": "b8c9d0e1-f2a3-4567-2345-feedback008",
+      "name": "Mark RSVP as Attended",
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2,
+      "position": [690, 700],
+      "credentials": {
+        "airtableTokenApi": {
+          "id": "2",
+          "name": "Airtable Personal Access Token"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "get",
+        "base": {
+          "__rl": true,
+          "value": "appXXXXXXXXXXXXXX",
+          "mode": "list",
+          "cachedResultName": "Discord Interest Matching"
+        },
+        "table": {
+          "__rl": true,
+          "value": "tblUsers",
+          "mode": "list",
+          "cachedResultName": "Users"
+        },
+        "id": "={{ $json.user_id }}"
+      },
+      "id": "c9d0e1f2-a3b4-5678-3456-feedback009",
+      "name": "Get User for Thank You",
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2,
+      "position": [910, 700],
+      "credentials": {
+        "airtableTokenApi": {
+          "id": "2",
+          "name": "Airtable Personal Access Token"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "channel": "={{ $json.fields['Discord ID'] }}",
+        "content": "=✅ **Thanks for your feedback!**\n\nYour input helps us create better dinner experiences for everyone.\n\n🍽️ **Want to join another dinner?** You'll automatically be included in future invitations!\n\nSee you at the next one! 🎉"
+      },
+      "id": "d0e1f2a3-b4c5-6789-4567-feedback010",
+      "name": "Send Thank You DM",
+      "type": "n8n-nodes-base.discord",
+      "typeVersion": 1,
+      "position": [1130, 700],
+      "credentials": {
+        "discordApi": {
+          "id": "1",
+          "name": "Discord Bot Account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { \"success\": true, \"message\": \"Thank you for your feedback!\" } }}",
+        "options": {}
+      },
+      "id": "e1f2a3b4-c5d6-7890-5678-feedback011",
+      "name": "Respond to Webhook",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [1350, 700]
+    },
+    {
+      "parameters": {
+        "operation": "get",
+        "base": {
+          "__rl": true,
+          "value": "appXXXXXXXXXXXXXX",
+          "mode": "list",
+          "cachedResultName": "Discord Interest Matching"
+        },
+        "table": {
+          "__rl": true,
+          "value": "tblDinnerEvents",
+          "mode": "list",
+          "cachedResultName": "Dinner_Events"
+        },
+        "id": "={{ $json.event_id }}"
+      },
+      "id": "f2a3b4c5-d6e7-8901-6789-feedback012",
+      "name": "Get Event Details",
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2,
+      "position": [690, 900],
+      "credentials": {
+        "airtableTokenApi": {
+          "id": "2",
+          "name": "Airtable Personal Access Token"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "number": [
+            {
+              "value1": "={{ $json.fields['Attendee Count'] }}",
+              "operation": "equal",
+              "value2": "={{ $json.fields['Group Size'] }}"
+            }
+          ]
+        }
+      },
+      "id": "a3b4c5d6-e7f8-9012-7890-feedback013",
+      "name": "All Feedback Received?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [910, 900],
+      "notes": "Check if all attendees submitted feedback"
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "base": {
+          "__rl": true,
+          "value": "appXXXXXXXXXXXXXX",
+          "mode": "list",
+          "cachedResultName": "Discord Interest Matching"
+        },
+        "table": {
+          "__rl": true,
+          "value": "tblDinnerEvents",
+          "mode": "list",
+          "cachedResultName": "Dinner_Events"
+        },
+        "id": "={{ $json.fields.id }}",
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "Status": "Completed"
+          }
+        }
+      },
+      "id": "b4c5d6e7-f8a9-0123-8901-feedback014",
+      "name": "Mark Event Completed",
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2,
+      "position": [1130, 900],
+      "credentials": {
+        "airtableTokenApi": {
+          "id": "2",
+          "name": "Airtable Personal Access Token"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "0 10 * * 0"
+            }
+          ]
+        }
+      },
+      "id": "c5d6e7f8-a9b0-1234-9012-feedback015",
+      "name": "Sunday 10 AM - Weekly Analysis",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.1,
+      "position": [250, 1200],
+      "notes": "Analyze feedback trends weekly"
+    },
+    {
+      "parameters": {
+        "operation": "list",
+        "base": {
+          "__rl": true,
+          "value": "appXXXXXXXXXXXXXX",
+          "mode": "list",
+          "cachedResultName": "Discord Interest Matching"
+        },
+        "table": {
+          "__rl": true,
+          "value": "tblDinnerFeedback",
+          "mode": "list",
+          "cachedResultName": "Dinner_Feedback"
+        },
+        "filterByFormula": "=DATETIME_DIFF(NOW(), {Submitted At}, 'days') <= 7",
+        "options": {
+          "useFieldNames": true
+        }
+      },
+      "id": "d6e7f8a9-b0c1-2345-0123-feedback016",
+      "name": "Get Last Week Feedback",
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2,
+      "position": [470, 1200],
+      "credentials": {
+        "airtableTokenApi": {
+          "id": "2",
+          "name": "Airtable Personal Access Token"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Analyze dinner feedback patterns\nconst feedback = $input.all();\n\nif (feedback.length === 0) {\n  return [{ json: { message: 'No feedback this week' } }];\n}\n\n// Calculate metrics\nlet totalOverall = 0;\nlet totalGroupDynamics = 0;\nlet totalConversation = 0;\nlet totalLocation = 0;\nlet wouldAttendYes = 0;\nlet metInterestingPeople = 0;\n\nconst topicsCount = {};\nconst favoriteMoments = [];\nconst suggestions = [];\n\nfeedback.forEach(item => {\n  const fields = item.json.fields;\n  \n  // Parse ratings\n  totalOverall += parseInt(fields['Overall Rating']?.split(' ')[0]) || 0;\n  totalGroupDynamics += parseInt(fields['Group Dynamics']) || 0;\n  totalConversation += parseInt(fields['Conversation Quality']) || 0;\n  totalLocation += parseInt(fields['Location Rating']) || 0;\n  \n  if (fields['Would Attend Again']?.includes('Yes')) {\n    wouldAttendYes++;\n  }\n  \n  if (fields['Met Interesting People']) {\n    metInterestingPeople++;\n  }\n  \n  // Count topics\n  const topics = fields['Topics Discussed'] || [];\n  topics.forEach(topic => {\n    topicsCount[topic] = (topicsCount[topic] || 0) + 1;\n  });\n  \n  // Collect moments and suggestions\n  if (fields['Favorite Moments']) {\n    favoriteMoments.push(fields['Favorite Moments']);\n  }\n  if (fields['Suggestions']) {\n    suggestions.push(fields['Suggestions']);\n  }\n});\n\nconst count = feedback.length;\nconst avgOverall = (totalOverall / count).toFixed(2);\nconst avgGroupDynamics = (totalGroupDynamics / count).toFixed(2);\nconst avgConversation = (totalConversation / count).toFixed(2);\nconst avgLocation = (totalLocation / count).toFixed(2);\nconst attendAgainRate = ((wouldAttendYes / count) * 100).toFixed(1);\nconst connectionRate = ((metInterestingPeople / count) * 100).toFixed(1);\n\nconst popularTopics = Object.entries(topicsCount)\n  .sort((a, b) => b[1] - a[1])\n  .slice(0, 5)\n  .map(([topic, count]) => ({ topic, count }));\n\nreturn [{\n  json: {\n    weekOf: new Date().toISOString().split('T')[0],\n    totalFeedback: count,\n    averages: {\n      overall: avgOverall,\n      groupDynamics: avgGroupDynamics,\n      conversation: avgConversation,\n      location: avgLocation\n    },\n    rates: {\n      wouldAttendAgain: attendAgainRate,\n      madeConnections: connectionRate\n    },\n    popularTopics: popularTopics,\n    highlights: favoriteMoments.slice(0, 3),\n    suggestionsForImprovement: suggestions.slice(0, 5)\n  }\n}];"
+      },
+      "id": "e7f8a9b0-c1d2-3456-1234-feedback017",
+      "name": "Analyze Feedback Patterns",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [690, 1200]
+    },
+    {
+      "parameters": {
+        "content": "=📊 **Weekly Dinner Feedback Report**\n\n**Week of**: {{ $json.weekOf }}\n**Total Responses**: {{ $json.totalFeedback }}\n\n**Average Ratings** (out of 5):\n• Overall Experience: {{ $json.averages.overall }}\n• Group Dynamics: {{ $json.averages.groupDynamics }}\n• Conversation Quality: {{ $json.averages.conversation }}\n• Location: {{ $json.averages.location }}\n\n**Engagement**:\n• Would Attend Again: {{ $json.rates.wouldAttendAgain }}%\n• Made Connections: {{ $json.rates.madeConnections }}%\n\n**Popular Topics**:\n{{ $json.popularTopics.map(t => `• ${t.topic}: ${t.count} mentions`).join('\\n') }}\n\n**Highlights**:\n{{ $json.highlights.map(h => `• \"${h}\"`).join('\\n') }}\n\n**Suggestions for Next Week**:\n{{ $json.suggestionsForImprovement.map(s => `• ${s}`).join('\\n') }}",
+        "channel": "admin-channel",
+        "additionalFields": {}
+      },
+      "id": "f8a9b0c1-d2e3-4567-2345-feedback018",
+      "name": "Send Admin Report",
+      "type": "n8n-nodes-base.slack",
+      "typeVersion": 1,
+      "position": [910, 1200],
+      "notes": "Send to admin Slack/Discord channel"
+    }
+  ],
+  "connections": {
+    "Thursday & Friday 10 AM": {
+      "main": [
+        [
+          {
+            "node": "Get Yesterday's Dinners",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Yesterday's Dinners": {
+      "main": [
+        [
+          {
+            "node": "Get Event Attendees",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Event Attendees": {
+      "main": [
+        [
+          {
+            "node": "Get User Details",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get User Details": {
+      "main": [
+        [
+          {
+            "node": "Send Feedback Request DM",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Feedback Form Webhook": {
+      "main": [
+        [
+          {
+            "node": "Save Feedback to Airtable",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Save Feedback to Airtable": {
+      "main": [
+        [
+          {
+            "node": "Mark RSVP as Attended",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Get Event Details",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Mark RSVP as Attended": {
+      "main": [
+        [
+          {
+            "node": "Get User for Thank You",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get User for Thank You": {
+      "main": [
+        [
+          {
+            "node": "Send Thank You DM",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send Thank You DM": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Event Details": {
+      "main": [
+        [
+          {
+            "node": "All Feedback Received?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "All Feedback Received?": {
+      "main": [
+        [
+          {
+            "node": "Mark Event Completed",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Sunday 10 AM - Weekly Analysis": {
+      "main": [
+        [
+          {
+            "node": "Get Last Week Feedback",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Last Week Feedback": {
+      "main": [
+        [
+          {
+            "node": "Analyze Feedback Patterns",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Analyze Feedback Patterns": {
+      "main": [
+        [
+          {
+            "node": "Send Admin Report",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "1",
+  "id": "discord-dinner-feedback",
+  "meta": {
+    "instanceId": "your-instance-id"
+  },
+  "tags": [
+    {
+      "name": "Small Group Dinners",
+      "id": "11"
+    },
+    {
+      "name": "Feedback",
+      "id": "9"
+    }
+  ],
+  "pinData": {},
+  "staticData": null,
+  "createdAt": "2025-11-02T00:00:00.000Z",
+  "updatedAt": "2025-11-02T00:00:00.000Z"
+}

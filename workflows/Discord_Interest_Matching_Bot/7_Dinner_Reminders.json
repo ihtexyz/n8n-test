@@ -1,0 +1,529 @@
+{
+  "name": "Small Group Dinners - Reminders & Confirmations",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "0 9 * * 2,3"
+            }
+          ]
+        }
+      },
+      "id": "a1b2c3d4-e5f6-7890-abcd-remind001",
+      "name": "Tuesday & Wednesday 9 AM",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.1,
+      "position": [250, 300],
+      "notes": "Tuesday for Wednesday dinners, Wednesday for Thursday dinners"
+    },
+    {
+      "parameters": {
+        "operation": "list",
+        "base": {
+          "__rl": true,
+          "value": "appXXXXXXXXXXXXXX",
+          "mode": "list",
+          "cachedResultName": "Discord Interest Matching"
+        },
+        "table": {
+          "__rl": true,
+          "value": "tblDinnerEvents",
+          "mode": "list",
+          "cachedResultName": "Dinner_Events"
+        },
+        "filterByFormula": "=AND({Status}='Planning', OR({Day}='Wednesday', {Day}='Thursday'), DATETIME_DIFF({Date}, TODAY(), 'days') = 1)",
+        "options": {
+          "useFieldNames": true
+        }
+      },
+      "id": "b2c3d4e5-f6a7-8901-bcde-remind002",
+      "name": "Get Tomorrow's Dinners",
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2,
+      "position": [470, 300],
+      "credentials": {
+        "airtableTokenApi": {
+          "id": "2",
+          "name": "Airtable Personal Access Token"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Assign location based on group preferences\nconst event = $input.item(0).json;\nconst attendees = event.fields['Attendees'] || [];\n\n// Get attendee details from RSVPs\nconst areas = [];\nconst dietaryNeeds = [];\n\n// For now, use a simple location assignment\n// In production, you'd query RSVPs and pick best location\nconst locations = [\n  {\n    name: \"Pizzeria Delfina\",\n    address: \"3611 18th St, San Francisco, CA 94110\",\n    area: \"Mission\",\n    mapLink: \"https://maps.google.com/?q=Pizzeria+Delfina+Mission\",\n    cuisine: \"Italian\"\n  },\n  {\n    name: \"State Bird Provisions\",\n    address: \"1529 Fillmore St, San Francisco, CA 94115\",\n    area: \"Western Addition\",\n    mapLink: \"https://maps.google.com/?q=State+Bird+Provisions\",\n    cuisine: \"American\"\n  },\n  {\n    name: \"Nopa\",\n    address: \"560 Divisadero St, San Francisco, CA 94117\",\n    area: \"Alamo Square\",\n    mapLink: \"https://maps.google.com/?q=Nopa+SF\",\n    cuisine: \"California\"\n  }\n];\n\n// Pick a random location for now\nconst location = locations[Math.floor(Math.random() * locations.length)];\n\nreturn [{\n  json: {\n    eventId: event.id,\n    day: event.fields['Day'],\n    date: event.fields['Date'],\n    time: event.fields['Time'],\n    groupSize: event.fields['Group Size'],\n    attendees: attendees,\n    location: location\n  }\n}];"
+      },
+      "id": "c3d4e5f6-a7b8-9012-cdef-remind003",
+      "name": "Assign Location",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [690, 300],
+      "notes": "Simple location assignment - can be enhanced"
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "base": {
+          "__rl": true,
+          "value": "appXXXXXXXXXXXXXX",
+          "mode": "list",
+          "cachedResultName": "Discord Interest Matching"
+        },
+        "table": {
+          "__rl": true,
+          "value": "tblDinnerEvents",
+          "mode": "list",
+          "cachedResultName": "Dinner_Events"
+        },
+        "id": "={{ $json.eventId }}",
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "Location Name": "={{ $json.location.name }}",
+            "Location Address": "={{ $json.location.address }}",
+            "Location Area": "={{ $json.location.area }}",
+            "Location Link": "={{ $json.location.mapLink }}",
+            "Status": "Confirmed",
+            "Confirmed At": "={{ $now.toISO() }}"
+          }
+        }
+      },
+      "id": "d4e5f6a7-b8c9-0123-def1-remind004",
+      "name": "Update Event with Location",
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2,
+      "position": [910, 300],
+      "credentials": {
+        "airtableTokenApi": {
+          "id": "2",
+          "name": "Airtable Personal Access Token"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "list",
+        "base": {
+          "__rl": true,
+          "value": "appXXXXXXXXXXXXXX",
+          "mode": "list",
+          "cachedResultName": "Discord Interest Matching"
+        },
+        "table": {
+          "__rl": true,
+          "value": "tblDinnerRSVPs",
+          "mode": "list",
+          "cachedResultName": "Dinner_RSVPs"
+        },
+        "filterByFormula": "=FIND('{{ $json.eventId }}', ARRAYJOIN({Assigned Event}))",
+        "options": {
+          "useFieldNames": true
+        }
+      },
+      "id": "e5f6a7b8-c9d0-1234-ef12-remind005",
+      "name": "Get Attendee RSVPs",
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2,
+      "position": [1130, 300],
+      "credentials": {
+        "airtableTokenApi": {
+          "id": "2",
+          "name": "Airtable Personal Access Token"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "get",
+        "base": {
+          "__rl": true,
+          "value": "appXXXXXXXXXXXXXX",
+          "mode": "list",
+          "cachedResultName": "Discord Interest Matching"
+        },
+        "table": {
+          "__rl": true,
+          "value": "tblUsers",
+          "mode": "list",
+          "cachedResultName": "Users"
+        },
+        "id": "={{ $json.fields['User'][0] }}"
+      },
+      "id": "f6a7b8c9-d0e1-2345-f123-remind006",
+      "name": "Get Attendee Details",
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2,
+      "position": [1350, 300],
+      "credentials": {
+        "airtableTokenApi": {
+          "id": "2",
+          "name": "Airtable Personal Access Token"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "channel": "={{ $json.fields['Discord ID'] }}",
+        "embeds": [
+          {
+            "title": "🍽️ Dinner Tomorrow - Final Details!",
+            "description": "=Your small group dinner is all set for tomorrow!",
+            "color": 15844367,
+            "fields": [
+              {
+                "name": "⏰ When",
+                "value": "=Tomorrow ({{ $('Assign Location').item.json.day }}) at {{ $('Assign Location').item.json.time }}",
+                "inline": false
+              },
+              {
+                "name": "📍 Where",
+                "value": "=**{{ $('Assign Location').item.json.location.name }}**\\n{{ $('Assign Location').item.json.location.address }}\\n{{ $('Assign Location').item.json.location.area }}\\n\\n[📱 Open in Maps]({{ $('Assign Location').item.json.location.mapLink }})",
+                "inline": false
+              },
+              {
+                "name": "👥 Group Size",
+                "value": "={{ $('Assign Location').item.json.groupSize }} people (including you)",
+                "inline": false
+              },
+              {
+                "name": "💡 Helpful Tips",
+                "value": "• **Arrive on time** (7:00 PM sharp)\\n• **Look for the group** - introduce yourself!\\n• **Order separately** - everyone pays for their own meal\\n• **Be present** - put phones away and enjoy the conversation\\n• **Exchange contacts** if you connect with someone",
+                "inline": false
+              },
+              {
+                "name": "📱 Group Chat",
+                "value": "Check the Discord thread for last-minute updates and coordination with your group!",
+                "inline": false
+              },
+              {
+                "name": "❓ Running Late or Can't Make It?",
+                "value": "Let us know ASAP in the group thread or reply here",
+                "inline": false
+              }
+            ],
+            "footer": {
+              "text": "Have a fantastic dinner! We'll send a quick feedback survey afterward."
+            }
+          }
+        ]
+      },
+      "id": "a7b8c9d0-e1f2-3456-1234-remind007",
+      "name": "Send Reminder DM",
+      "type": "n8n-nodes-base.discord",
+      "typeVersion": 1,
+      "position": [1570, 300],
+      "credentials": {
+        "discordApi": {
+          "id": "1",
+          "name": "Discord Bot Account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "base": {
+          "__rl": true,
+          "value": "appXXXXXXXXXXXXXX",
+          "mode": "list",
+          "cachedResultName": "Discord Interest Matching"
+        },
+        "table": {
+          "__rl": true,
+          "value": "tblDinnerRSVPs",
+          "mode": "list",
+          "cachedResultName": "Dinner_RSVPs"
+        },
+        "id": "={{ $json.id }}",
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "Reminder Sent": true,
+            "Confirmed": true
+          }
+        }
+      },
+      "id": "b8c9d0e1-f2a3-4567-2345-remind008",
+      "name": "Mark Reminder Sent",
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2,
+      "position": [1790, 300],
+      "credentials": {
+        "airtableTokenApi": {
+          "id": "2",
+          "name": "Airtable Personal Access Token"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "name": "=Dinner {{ $('Assign Location').item.json.day }} - {{ $('Assign Location').item.json.location.name }}",
+        "channel": "general",
+        "message": "=👋 Welcome to your dinner group!\n\nYou're all confirmed for **{{ $('Assign Location').item.json.day }}** at **{{ $('Assign Location').item.json.time }}**\n\n📍 **{{ $('Assign Location').item.json.location.name }}**\n{{ $('Assign Location').item.json.location.address }}\n\n👥 **Group members** ({{ $('Assign Location').item.json.groupSize }} people):\nYou'll see everyone here!\n\nUse this thread to:\n• Confirm you're coming\n• Let group know if running late\n• Coordinate meeting spot at restaurant\n• Share contact info\n\nSee you tomorrow! 🎉"
+      },
+      "id": "c9d0e1f2-a3b4-5678-3456-remind009",
+      "name": "Create Discord Group Thread",
+      "type": "n8n-nodes-base.discord",
+      "typeVersion": 1,
+      "position": [2010, 300],
+      "credentials": {
+        "discordApi": {
+          "id": "1",
+          "name": "Discord Bot Account"
+        }
+      },
+      "notes": "Create dedicated thread for the group"
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "base": {
+          "__rl": true,
+          "value": "appXXXXXXXXXXXXXX",
+          "mode": "list",
+          "cachedResultName": "Discord Interest Matching"
+        },
+        "table": {
+          "__rl": true,
+          "value": "tblDinnerEvents",
+          "mode": "list",
+          "cachedResultName": "Dinner_Events"
+        },
+        "id": "={{ $('Assign Location').item.json.eventId }}",
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "Discord Thread ID": "={{ $json.thread_id }}"
+          }
+        }
+      },
+      "id": "d0e1f2a3-b4c5-6789-4567-remind010",
+      "name": "Save Thread ID",
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2,
+      "position": [2230, 300],
+      "credentials": {
+        "airtableTokenApi": {
+          "id": "2",
+          "name": "Airtable Personal Access Token"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "0 15 * * 3,4"
+            }
+          ]
+        }
+      },
+      "id": "e1f2a3b4-c5d6-7890-5678-remind011",
+      "name": "Day-Of Check-In (3 PM)",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.1,
+      "position": [250, 700],
+      "notes": "Final check-in on the day of dinner"
+    },
+    {
+      "parameters": {
+        "operation": "list",
+        "base": {
+          "__rl": true,
+          "value": "appXXXXXXXXXXXXXX",
+          "mode": "list",
+          "cachedResultName": "Discord Interest Matching"
+        },
+        "table": {
+          "__rl": true,
+          "value": "tblDinnerEvents",
+          "mode": "list",
+          "cachedResultName": "Dinner_Events"
+        },
+        "filterByFormula": "=AND({Status}='Confirmed', DATETIME_DIFF({Date}, TODAY(), 'days') = 0)",
+        "options": {
+          "useFieldNames": true
+        }
+      },
+      "id": "f2a3b4c5-d6e7-8901-6789-remind012",
+      "name": "Get Today's Dinners",
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2,
+      "position": [470, 700],
+      "credentials": {
+        "airtableTokenApi": {
+          "id": "2",
+          "name": "Airtable Personal Access Token"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "content": "=🍽️ **Tonight's the night!**\n\n**{{ $json.fields['Location Name'] }}** at {{ $json.fields['Time'] }}\n{{ $json.fields['Location Address'] }}\n\n✅ Final confirmations in the group thread\n📱 [Open Maps]({{ $json.fields['Location Link'] }})\n\nSee you soon! 🎉",
+        "threadId": "={{ $json.fields['Discord Thread ID'] }}",
+        "additionalFields": {}
+      },
+      "id": "a3b4c5d6-e7f8-9012-7890-remind013",
+      "name": "Post to Group Thread",
+      "type": "n8n-nodes-base.discord",
+      "typeVersion": 1,
+      "position": [690, 700],
+      "credentials": {
+        "discordApi": {
+          "id": "1",
+          "name": "Discord Bot Account"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Tuesday & Wednesday 9 AM": {
+      "main": [
+        [
+          {
+            "node": "Get Tomorrow's Dinners",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Tomorrow's Dinners": {
+      "main": [
+        [
+          {
+            "node": "Assign Location",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Assign Location": {
+      "main": [
+        [
+          {
+            "node": "Update Event with Location",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Update Event with Location": {
+      "main": [
+        [
+          {
+            "node": "Get Attendee RSVPs",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Attendee RSVPs": {
+      "main": [
+        [
+          {
+            "node": "Get Attendee Details",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Attendee Details": {
+      "main": [
+        [
+          {
+            "node": "Send Reminder DM",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send Reminder DM": {
+      "main": [
+        [
+          {
+            "node": "Mark Reminder Sent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Mark Reminder Sent": {
+      "main": [
+        [
+          {
+            "node": "Create Discord Group Thread",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create Discord Group Thread": {
+      "main": [
+        [
+          {
+            "node": "Save Thread ID",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Day-Of Check-In (3 PM)": {
+      "main": [
+        [
+          {
+            "node": "Get Today's Dinners",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Today's Dinners": {
+      "main": [
+        [
+          {
+            "node": "Post to Group Thread",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "1",
+  "id": "discord-dinner-reminders",
+  "meta": {
+    "instanceId": "your-instance-id"
+  },
+  "tags": [
+    {
+      "name": "Small Group Dinners",
+      "id": "11"
+    },
+    {
+      "name": "Reminders",
+      "id": "14"
+    }
+  ],
+  "pinData": {},
+  "staticData": null,
+  "createdAt": "2025-11-02T00:00:00.000Z",
+  "updatedAt": "2025-11-02T00:00:00.000Z"
+}

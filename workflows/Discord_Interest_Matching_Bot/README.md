@@ -4,16 +4,29 @@ An intelligent AI-powered Discord bot that matches people based on their interes
 
 ## 🎯 Overview
 
-This system automatically connects people in your Discord community who share common interests, work in related fields, or live in similar locations. The bot handles the entire matching lifecycle:
+This system automatically connects people in your Discord community through **two complementary features**:
 
+### Feature 1: 1-on-1 Virtual Matches (AI-Powered)
 1. **User Registration** - Users fill out a short Airtable form with their preferences
 2. **AI Matching** - LangChain/OpenAI analyzes profiles and finds compatible matches
 3. **Meeting Scheduling** - Matched pairs receive a Cal.com link to book a time
 4. **Feedback Collection** - Users rate conversations to improve the algorithm
 
+### Feature 2: Small Group Dinners (Balanced Diversity)
+1. **Weekly Invitations** - Monday invites for Wednesday/Thursday dinners
+2. **RSVP Collection** - Users sign up by Tuesday with preferences
+3. **Group Formation** - Algorithm creates balanced groups of 5-6 people
+4. **Location Assignment** - Restaurant details sent day before
+5. **In-Person Dinners** - Meet for casual networking over food
+6. **Feedback Loop** - Collect ratings to improve future groupings
+
+**📖 See [DINNERS_README.md](DINNERS_README.md) for complete small group dinners documentation**
+
 ## 🏗️ Architecture
 
-The system consists of **4 main n8n workflows**:
+The system consists of **8 main n8n workflows**:
+
+### 1-on-1 Virtual Matching (Workflows 1-4)
 
 ### 1. User Registration Workflow (`1_User_Registration_Workflow.json`)
 - Triggered when users type `/register` in Discord
@@ -45,6 +58,34 @@ The system consists of **4 main n8n workflows**:
 - Marks matches as completed when both users submit
 - Weekly analysis for algorithm improvements
 - Sends admin reports on matching success
+
+### Small Group Dinners (Workflows 5-8)
+
+### 5. Dinner Interest Collection Workflow (`5_Dinner_Interest_Collection.json`)
+- Monday 9 AM: Send weekly dinner invitations
+- Collect RSVPs via Airtable form (day preference, location, dietary needs)
+- Tuesday 5 PM: Close RSVPs and trigger group formation
+- `/dinner-rsvp` Discord command for quick signup
+
+### 6. Dinner Group Formation Workflow (`6_Dinner_Group_Formation.json`)
+- Balanced algorithm creates diverse groups of 5-6 people
+- Factors: industry diversity, experience mix, dietary compatibility, location preferences
+- Avoids repeat pairings within 4 weeks
+- Splits by day preference (Wednesday/Thursday)
+- Sends group assignment DMs to all attendees
+
+### 7. Dinner Reminders Workflow (`7_Dinner_Reminders.json`)
+- Day before (9 AM): Assign restaurant location, send detailed reminders
+- Creates Discord group thread for coordination
+- Day of (3 PM): Final check-in reminder in thread
+- Updates event status to "Confirmed"
+
+### 8. Dinner Feedback Workflow (`8_Dinner_Feedback.json`)
+- Day after (10 AM): Send feedback form to attendees
+- Collects ratings: overall, group dynamics, location, conversation quality
+- Marks RSVPs as "Attended" when feedback submitted
+- Sunday (10 AM): Weekly analysis and admin report
+- Tracks engagement metrics and improvement suggestions
 
 ## 📋 Prerequisites
 
